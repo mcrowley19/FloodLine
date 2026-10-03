@@ -41,6 +41,10 @@ OPW_REF_MIN, OPW_REF_MAX = 1, 41000
 LIVE_POLL_S = 15 * 60  # never poll waterlevel.ie faster than this
 ENSEMBLE_REFRESH_S = 6 * 3600  # ECMWF ensemble cycles every 6 h; also keeps Open-Meteo usage low
 GFM_REFRESH_S = 30 * 60
+# Hi-res surface-water rain: ~818 cells x 3 models ~= 2,500 weighted Open-Meteo calls per refresh,
+# so 12 h keeps the free tier's 10,000/day (shared with the river forecasts). Lower it with an API key.
+SURFACE_REFRESH_S = int(os.environ.get("FLOODLINE_SURFACE_REFRESH_H", "12")) * 3600
+COASTAL_REFRESH_S = 3600
 
 USER_AGENT = "Floodline/0.1 (flood lead-time tool for Irish county councils)"
 
@@ -61,6 +65,14 @@ URLS = {
     "counties": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_1_states_provinces.geojson",
     "emsr_activation": "https://rapidmapping.emergency.copernicus.eu/backend/dashboard-api/public-activations/?code={code}",
     "gfm_api": "https://api.gfm.eodc.eu/v2",
+    "historical_forecast": "https://historical-forecast-api.open-meteo.com/v1/forecast",
+    "historical_forecast_customer": "https://customer-historical-forecast-api.open-meteo.com/v1/forecast",
+    "epa_wms": "https://gis.epa.ie/geoserver/wms",
+    "nifm": "https://s3.eu-west-1.amazonaws.com/catalogue.floodinfo.opw/nifm/nifm_ext_f_c.zip",
+    "coastal_extents": "https://s3.eu-west-1.amazonaws.com/catalogue.floodinfo.opw/ncfhm_itm_ext_c_c_1000yr_200yr_10yr.zip",
+    "gsi_gw_probability": "https://gsi.geodata.gov.ie/downloads/Groundwater/Data/IE_GSI_Groundwater_Flood_Probability_Maps_20k_IE26_ITM.zip",
+    "gsi_historic": "https://gsi.geodata.gov.ie/downloads/Groundwater/Data/IE_GSI_Historic_Flooding_Data_20k_IE26_ITM.zip",
+    "erddap": "https://erddap.marine.ie/erddap/tabledap",
     "cdse_wms": "https://sh.dataspace.copernicus.eu/ogc/wms/{instance}",
 }
 
@@ -119,6 +131,10 @@ class Paths:
     @property
     def gfm(self) -> Path:
         return self.satellite / "gfm_latest.geojson"
+
+    @property
+    def hazards(self) -> Path:
+        return self.data / "hazards"
 
     @property
     def demo(self) -> Path:

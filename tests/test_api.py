@@ -103,3 +103,64 @@ def test_demo_uses_only_past_levels(client):
     lv = pl.read_parquet(paths().levels / f"{row['id']}.parquet")
     expected = lv.filter(pl.col("time") == pl.lit(at).str.to_datetime(time_zone="UTC"))["level"][0]
     assert abs(row["level_now"] - expected) < 1e-3
+
+
+LEVEL_SET = {"CLEAR", "WATCH", "MODERATE", "HIGH"}
+
+
+def test_surface_water(client):
+    d = client.get("/surface-water").json()
+    assert set(d["counts"]) == LEVEL_SET and len(d["cells"]) == 2
+    top = d["cells"][0]
+    assert top["cell_id"] == "E640N650" and top["level"] in ("MODERATE", "HIGH") and top["priority"] == 100.0
+    assert {"susceptibility", "urban_share", "poor_drainage_share", "peak_1h_mm", "peak_utc", "rain_past_7d"} <= set(top)
+    assert len(client.get("/surface-water", params={"min_level": "MODERATE"}).json()["cells"]) >= 1
+    assert client.get("/surface-water", params={"county": "Galway", "min_level": "MODERATE"}).json()["cells"] == []
+    assert client.get("/surface-water", params={"min_level": "bogus"}).status_code == 400
+    gj = client.get("/surface-water/geojson").json()
+    assert gj["type"] == "FeatureCollection" and gj["features"][0]["geometry"]["type"] == "Polygon"
+    cell = client.get("/surface-water/E640N650").json()
+    assert cell["ground"]["made_frac"] == 0.3 and len(cell["rain_hourly"]) > 24
+    assert client.get("/surface-water/NOPE").status_code == 404
+
+
+def test_groundwater(client):
+    d = client.get("/groundwater", params={"min_level": "CLEAR"}).json()
+    assert len(d["zones"]) == 2 and set(d["counts"]) == LEVEL_SET
+    assert {"zone_id", "probability", "level", "percentile", "county"} <= set(d["zones"][0])
+    assert "url" in d["polygons_wms"]
+
+
+def test_coastal(client):
+    d = client.get("/coastal").json()
+    st = d["stations"][0]
+    assert st["station_id"] == "Wexford_Bay" and st["level"] == "HIGH"  # 0.7 tide + 0.55 surge >= P99 0.9 + 0.3
+    detail = client.get("/coastal/Wexford_Bay").json()
+    assert len(detail["series"]) == 49 and {"t", "tide", "surge", "total"} == set(detail["series"][0])
+    assert client.get("/coastal/nowhere").status_code == 404
+
+
+def test_combined_alerts(client):
+    d = client.get("/alerts", params={"min_level": "CLEAR"}).json()
+    types = {a["type"] for a in d["alerts"]}
+    assert {"river", "surface_water", "coastal"} <= types
+    levels = [a["level"] for a in d["alerts"]]
+    order = ["HIGH", "MODERATE", "WATCH", "CLEAR"]
+    assert levels == sorted(levels, key=order.index)
+    assert all({"type", "id", "name", "county", "lat", "lon", "level", "headline", "time_utc"} <= set(a) for a in d["alerts"])
+    k = client.get("/alerts", params={"county": "Kilkenny", "min_level": "CLEAR"}).json()["alerts"]
+    assert k and all(a["county"] == "Kilkenny" for a in k)
+
+
+def test_demo_hazards(client):
+    before = client.get("/demo/surface-water", params={"at": "2026-01-22T00:00:00Z"}).json()
+    during = client.get("/demo/surface-water", params={"at": "2026-01-26T12:00:00Z"}).json()
+    assert before["forecast_source"] == "proxy" and len(during["cells"]) == 2
+    lvl = {c["cell_id"]: c["level"] for c in during["cells"]}
+    assert lvl["E640N650"] in ("MODERATE", "HIGH")  # 28 mm/h burst 6 h ahead
+    assert {c["cell_id"]: c["level"] for c in before["cells"]}["E640N650"] == "CLEAR"
+    gw = client.get("/demo/groundwater", params={"at": "2026-01-26T12:00:00Z", "min_level": "CLEAR"}).json()
+    assert len(gw["zones"]) == 2
+    assert client.get("/demo/coastal", params={"at": "2026-01-26T12:00:00Z"}).json()["status"] == "unavailable"
+    al = client.get("/demo/alerts", params={"at": "2026-01-26T12:00:00Z", "min_level": "CLEAR"}).json()
+    assert {"river", "surface_water"} <= set(al["counts_by_type"])

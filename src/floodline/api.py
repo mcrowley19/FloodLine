@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
@@ -14,11 +15,35 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import decision, demo, satellite
 from .config import HORIZONS, paths, read_health, utcnow
+from .hazard_state import LEVEL_RANK, HazardState, combined_alerts
 from .service import LiveState, assemble, lead_time_rows, public_risk
 
 log = logging.getLogger("floodline.api")
 
-HEALTH_SOURCES = ("OPW", "OPW live", "Open-Meteo archive", "Open-Meteo recent", "Open-Meteo IFS", "Open-Meteo AIFS", "CFRAM", "GFM", "EMSR860", "CDSE WMS")
+HEALTH_SOURCES = (
+    "OPW", "OPW live", "Open-Meteo archive", "Open-Meteo recent", "Open-Meteo IFS", "Open-Meteo AIFS", "CFRAM", "GFM", "EMSR860", "CDSE WMS",
+    "EPA soils", "OPW NIFM / coastal extents", "GSI groundwater", "Marine Institute tides", "Marine Institute surge", "Open-Meteo hi-res (surface water)",
+)
+LEVELS = tuple(LEVEL_RANK)
+
+
+def _level(min_level: str) -> str:
+    lv = min_level.upper()
+    if lv not in LEVEL_RANK:
+        raise HTTPException(400, f"min_level must be one of {LEVELS}")
+    return lv
+
+
+def _filter(rows: list[dict], min_level: str, county: str | None) -> list[dict]:
+    floor = LEVEL_RANK[_level(min_level)]
+    return [r for r in rows if LEVEL_RANK[r["level"]] >= floor and (county is None or (r.get("county") or "").lower() == county.lower())]
+
+
+def _counts(rows: list[dict]) -> dict:
+    out = {k: 0 for k in LEVELS}
+    for r in rows:
+        out[r["level"]] += 1
+    return out
 
 
 def _parse_at(at: str) -> datetime:
@@ -35,6 +60,8 @@ class Demo:
 
     def __init__(self):
         self.df: pl.DataFrame | None = None
+        self.surface: pl.DataFrame | None = None
+        self.groundwater: pl.DataFrame | None = None
         self.emsr: list[dict] = []
         self.cutoffs: dict[int, float] = {}
 
@@ -43,6 +70,9 @@ class Demo:
         if p.demo.exists():
             self.df = pl.read_parquet(p.demo)
         self.emsr = satellite.load_emsr_features()
+        sp, gp = demo.hazard_demo_paths()
+        self.surface = pl.read_parquet(sp) if sp.exists() else None
+        self.groundwater = pl.read_parquet(gp) if gp.exists() else None
         if p.model_meta.exists():
             cal = json.loads(p.model_meta.read_text())["calibration"]
             self.cutoffs = {int(h): v["cutoff"] for h, v in cal.items()}
@@ -58,6 +88,14 @@ class Demo:
         probs = {h: d[f"prob_{h}"].to_numpy() for h in HORIZONS}
         return assemble(metas, probs, snap, self.cutoffs)
 
+    def hazard_rows(self, kind: str, at: datetime) -> tuple[datetime, list[dict]]:
+        df = self.surface if kind == "surface" else self.groundwater
+        if df is None:
+            raise HTTPException(503, f"{kind} replay not built yet (run `floodline hazards-build` then `floodline demo-build --force`)")
+        snap = demo.nearest_snapshot(at)
+        rows = df.filter(pl.col("at") == snap).drop("at").to_dicts()
+        return snap, rows
+
 
 def create_app(start_background: bool = True) -> FastAPI:
     state: dict = {}
@@ -65,8 +103,9 @@ def create_app(start_background: bool = True) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         live = LiveState()
+        hz = HazardState(live)
         dm = Demo()
-        state.update(live=live, demo=dm)
+        state.update(live=live, demo=dm, hazards=hz)
         if start_background:
             if not paths().demo.exists() and live.predictor is not None:
                 log.info("Precomputing demo snapshots")
@@ -76,12 +115,15 @@ def create_app(start_background: bool = True) -> FastAPI:
                     log.exception("Demo build failed; /demo endpoints will return 503")
             dm.load()
             await live.start()
+            await hz.start()
             asyncio.create_task(_gfm_loop())
         else:
             dm.load()
             live.recompute()
+            hz.recompute()
         yield
         await live.stop()
+        await hz.stop()
 
     async def _gfm_loop():
         from . import http
@@ -97,6 +139,8 @@ def create_app(start_background: bool = True) -> FastAPI:
     app = FastAPI(title="Floodline", version="0.1.0", lifespan=lifespan, description="Ireland-wide flood lead-time tool")
     app.add_middleware(
         CORSMiddleware,
+        # Extra origins (e.g. the deployed frontend) from FLOODLINE_CORS_ORIGINS, comma-separated.
+        allow_origins=[o.strip().rstrip("/") for o in os.environ.get("FLOODLINE_CORS_ORIGINS", "").split(",") if o.strip()],
         allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
         allow_methods=["*"],
         allow_headers=["*"],
@@ -199,4 +243,103 @@ def create_app(start_background: bool = True) -> FastAPI:
     def demo_satellite(at: str):
         return satellite.emsr_as_of(state["demo"].emsr, _parse_at(at))
 
+    # ---------- other hazards ----------
+
+    def hz() -> HazardState:
+        h = state["hazards"]
+        if not h.available:
+            raise HTTPException(503, "hazard layers not built yet (run `floodline hazards-build`)")
+        return h
+
+    @app.get("/surface-water")
+    def surface_water(min_level: str = "CLEAR", county: str | None = None):
+        h = hz()
+        rows = _filter(h.surface_rows, min_level, county)
+        return {"as_of_utc": decision.iso(h.computed_at) if h.computed_at else None, "rain_fetched_utc": decision.iso(h.surface_fetched) if h.surface_fetched else None,
+                "counts": _counts(h.surface_rows), "cells": rows}
+
+    @app.get("/surface-water/geojson")
+    def surface_water_geojson(min_level: str = "CLEAR"):
+        h = hz()
+        by_id = {r["cell_id"]: r for r in _filter(h.surface_rows, min_level, None)}
+        feats = [{**f, "properties": {k: v for k, v in by_id[f["id"]].items() if not isinstance(v, dict)}} for f in (h.cells_geojson or {}).get("features", []) if f["id"] in by_id]
+        return {"type": "FeatureCollection", "features": feats, "properties": {"as_of_utc": decision.iso(h.computed_at) if h.computed_at else None, "source": "Floodline surface-water indicator (rule-based)"}}
+
+    @app.get("/surface-water/{cell_id}")
+    def surface_water_cell(cell_id: str):
+        d = hz().surface_detail(cell_id.upper())
+        if d is None:
+            raise HTTPException(404, f"unknown cell {cell_id}")
+        return d
+
+    @app.get("/groundwater")
+    def groundwater_zones(min_level: str = "WATCH", county: str | None = None):
+        from .hazards import GSI_WMS
+
+        h = hz()
+        return {"as_of_utc": decision.iso(h.computed_at) if h.computed_at else None, "counts": _counts(h.groundwater_rows),
+                "zones": _filter(h.groundwater_rows, min_level, county), "polygons_wms": GSI_WMS}
+
+    @app.get("/coastal")
+    def coastal_points(min_level: str = "CLEAR", county: str | None = None):
+        h = hz()
+        return {"as_of_utc": decision.iso(h.computed_at) if h.computed_at else None, "surge_fetched_utc": decision.iso(h.surge_fetched) if h.surge_fetched else None,
+                "counts": _counts(h.coastal_rows), "stations": _filter(h.coastal_rows, min_level, county)}
+
+    @app.get("/coastal/{station_id}")
+    def coastal_point(station_id: str):
+        d = hz().coastal_detail(station_id)
+        if d is None:
+            raise HTTPException(404, f"unknown coastal point {station_id}")
+        return d
+
+    @app.get("/alerts")
+    def alerts(min_level: str = "WATCH", county: str | None = None):
+        h = state["hazards"]
+        rows = combined_alerts(live().rows, h.surface_rows, h.groundwater_rows, h.coastal_rows, _level(min_level))
+        if county:
+            rows = [r for r in rows if (r.get("county") or "").lower() == county.lower()]
+        return {"as_of_utc": decision.iso(utcnow()), "counts_by_type": _type_counts(rows), "alerts": rows}
+
+    @app.get("/demo/surface-water")
+    def demo_surface(at: str, min_level: str = "CLEAR", county: str | None = None):
+        snap, rows = state["demo"].hazard_rows("surface", _parse_at(at))
+        return {"as_of_utc": decision.iso(snap), "forecast_source": "proxy", "counts": _counts(rows), "cells": _filter(rows, min_level, county)}
+
+    @app.get("/demo/groundwater")
+    def demo_groundwater(at: str, min_level: str = "WATCH", county: str | None = None):
+        from .hazards import GSI_WMS
+
+        snap, rows = state["demo"].hazard_rows("groundwater", _parse_at(at))
+        h = state["hazards"]
+        for r in rows:
+            r["county"] = h.nearest_county(r["lat"], r["lon"])
+        return {"as_of_utc": decision.iso(snap), "forecast_source": "proxy", "counts": _counts(rows), "zones": _filter(rows, min_level, county), "polygons_wms": GSI_WMS}
+
+    @app.get("/demo/coastal")
+    def demo_coastal(at: str):
+        _parse_at(at)
+        return {"status": "unavailable", "reason": "The Marine Institute publishes surge forecasts for a rolling ~5-day window only; there is no archive for January 2026.", "stations": []}
+
+    @app.get("/demo/alerts")
+    def demo_alerts(at: str, min_level: str = "WATCH", county: str | None = None):
+        t = _parse_at(at)
+        river = state["demo"].rows(t)
+        _, surf = state["demo"].hazard_rows("surface", t)
+        _, gw = state["demo"].hazard_rows("groundwater", t)
+        h = state["hazards"]
+        for r in gw:
+            r["county"] = h.nearest_county(r["lat"], r["lon"])
+        rows = combined_alerts(river, surf, gw, [], _level(min_level))
+        if county:
+            rows = [r for r in rows if (r.get("county") or "").lower() == county.lower()]
+        return {"as_of_utc": decision.iso(demo.nearest_snapshot(t)), "forecast_source": "proxy", "counts_by_type": _type_counts(rows), "alerts": rows}
+
     return app
+
+
+def _type_counts(rows: list[dict]) -> dict:
+    out: dict[str, dict] = {}
+    for r in rows:
+        out.setdefault(r["type"], {k: 0 for k in LEVELS})[r["level"]] += 1
+    return out

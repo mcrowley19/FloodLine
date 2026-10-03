@@ -11,7 +11,7 @@ from .config import paths, setup_logging
 
 log = logging.getLogger("floodline")
 
-STAGES = ("ingest", "features", "train", "satellite-build", "demo-build")
+STAGES = ("ingest", "features", "train", "satellite-build", "hazards-build", "demo-build")
 
 
 def _done(stage: str) -> bool:
@@ -21,6 +21,7 @@ def _done(stage: str) -> bool:
         "features": lambda: (p.features / "_SUCCESS").exists(),
         "train": lambda: p.metrics.exists() and p.model_meta.exists(),
         "satellite-build": lambda: (p.emsr / "_index.json").exists(),
+        "hazards-build": lambda: (p.hazards / "_SUCCESS").exists(),
         "demo-build": lambda: p.demo.exists(),
     }[stage]()
 
@@ -45,6 +46,10 @@ def run_stage(stage: str, force: bool, limit: int | None = None) -> str:
         from . import satellite
 
         asyncio.run(satellite.build(force=force))
+    elif stage == "hazards-build":
+        from . import hazards
+
+        asyncio.run(hazards.build(force=force))
     elif stage == "demo-build":
         from . import demo
 

@@ -146,6 +146,52 @@ async def build() -> None:
     df = pl.DataFrame(metas).with_columns(*[pl.Series(f"prob_{h}", probs[h].astype(np.float32)) for h in HORIZONS])
     df.write_parquet(p.demo)
     log.info("Demo: %d snapshot rows (%d stations x %d timestamps)", df.height, df["id"].n_unique() if df.height else 0, len(stamps))
+    try:
+        await build_hazards()
+    except Exception:
+        log.exception("Hazard replay failed; /demo/surface-water and /demo/groundwater will be empty")
+
+
+def hazard_demo_paths():
+    h = paths().hazards
+    return h / "demo_surface.parquet", h / "demo_groundwater.parquet"
+
+
+async def build_hazards() -> None:
+    """Surface water from Open-Meteo's archived high-resolution forecasts (stitched model runs,
+    so the 'forecast' after each snapshot is close to what fell: a proxy, like the river
+    replay); groundwater from the rain archive with the next 7 days taken from the archive."""
+    from . import surface
+    from .hazard_state import groundwater_wetness
+    from . import groundwater
+
+    h = paths().hazards
+    cells_p, zones_p = h / "cells.parquet", h / "groundwater_zones.parquet"
+    surf_out, gw_out = hazard_demo_paths()
+    if cells_p.exists():
+        cells = pl.read_parquet(cells_p)
+        rain_p = surface.demo_rain_path()
+        rain = surface.load_rain(rain_p)
+        if not rain:
+            async with http.client() as c:
+                rain = await surface.fetch_hires(c, cells, openmeteo.WeightLimiter(), surface.DEMO_RAIN_START, surface.DEMO_RAIN_END)
+            surface.save_rain(rain, rain_p)
+        rows = []
+        for at in timeline():
+            for r in surface.assess_all(cells, rain, at):
+                r.pop("thresholds_mm", None)
+                rows.append({"at": at, **r, "forecast_source": "proxy"})
+        pl.DataFrame(rows, infer_schema_length=None).write_parquet(surf_out)
+        log.info("Demo surface water: %d rows", len(rows))
+    if zones_p.exists():
+        zones = pl.read_parquet(zones_p)
+        rows = []
+        for at in timeline():
+            wet = groundwater_wetness(zones, at, {}, None)
+            for r in groundwater.assess_zones(zones, wet, at):
+                rows.append({"at": at, **r, "forecast_source": "proxy"})
+        pl.DataFrame(rows, infer_schema_length=None).write_parquet(gw_out)
+        log.info("Demo groundwater: %d rows", len(rows))
 
 
 def nearest_snapshot(at: datetime) -> datetime:

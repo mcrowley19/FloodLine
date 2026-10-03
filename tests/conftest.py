@@ -67,6 +67,7 @@ def synth_env(tmp_path_factory):
     )
     (p.emsr / "_index.json").write_text("{}")
 
+    _write_hazards(p, end)
     features.build_all()
     train.train_all()
 
@@ -87,3 +88,53 @@ def client(synth_env):
 
     with TestClient(create_app(start_background=False)) as c:
         yield c
+
+
+HAZARD_CELLS = [  # cell_id, lat, lon, county, urban made_frac, poor_frac
+    ("E640N650", 52.6, -7.0, "Kilkenny", 0.30, 0.40),
+    ("E580N720", 53.3, -8.0, "Galway", 0.00, 0.10),
+]
+
+
+def _write_hazards(p, end: datetime) -> None:
+    from floodline import surface
+    from floodline.hazards import susceptibility
+
+    h = p.hazards
+    h.mkdir(parents=True, exist_ok=True)
+    zero = 0.0
+    rows = []
+    for cid, lat, lon, county, made, poor in HAZARD_CELLS:
+        rows.append({
+            "cell_id": cid, "e_itm": 640000, "n_itm": 650000, "lat": lat, "lon": lon, "county": county, "land_frac": 1.0,
+            "well_frac": 1 - made - poor, "imperfect_frac": zero, "poor_frac": poor, "very_poor_frac": zero, "peat_frac": zero,
+            "alluvium_frac": 0.05, "made_frac": made, "water_frac": zero, "cfram_fluvial10_frac": 0.01, "nifm_fluvial100_frac": 0.02,
+            "coastal10_frac": zero, "gw_high_frac": zero, "gw_medium_frac": zero, "gw_low_frac": zero, "gw_historic_frac": zero, "sw_2015_16_frac": 0.01,
+        })
+    cells = susceptibility(pl.DataFrame(rows))
+    cells.write_parquet(h / "cells.parquet")
+    square = lambda lat, lon: [[[lon, lat], [lon + 0.1, lat], [lon + 0.1, lat + 0.1], [lon, lat + 0.1], [lon, lat]]]
+    (h / "cells.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": [
+        {"type": "Feature", "id": c[0], "properties": {"cell_id": c[0]}, "geometry": {"type": "Polygon", "coordinates": square(c[1], c[2])}} for c in HAZARD_CELLS]}))
+    pl.DataFrame({"zone_id": ["gw-high-0", "gw-low-0"], "probability": ["high", "low"], "area_ha": [12.0, 3.0], "lat": [52.62, 53.31], "lon": [-7.02, -8.01]}).write_parquet(h / "groundwater_zones.parquet")
+    pl.DataFrame({"station_id": ["Wexford_Bay"], "name": ["Wexford Bay"], "lat": [52.34], "lon": [-6.42], "tide_station": ["Wexford"], "tide_station_km": [2.4],
+                  "hw_p95": [0.8], "hw_p99": [0.9], "coastal10_km2_within_10km": [25.0]}).write_parquet(h / "coastal_stations.parquet")
+    (h / "_SUCCESS").write_text("ok")
+
+    def rain_for(t0: datetime, t1: datetime, burst_at: datetime) -> dict:
+        times = np.arange(np.datetime64(t0.replace(tzinfo=None), "h"), np.datetime64(t1.replace(tzinfo=None), "h"))
+        drizzle = np.full((len(times), 3), 0.2, dtype=np.float32)
+        burst = drizzle.copy()
+        k = int((np.datetime64(burst_at.replace(tzinfo=None), "h") - times[0]).astype(int))
+        if 0 <= k < len(times):
+            burst[k] = 28.0  # downpour over the Kilkenny cell only
+        return {HAZARD_CELLS[0][0]: (times, burst), HAZARD_CELLS[1][0]: (times, drizzle)}
+
+    surface.save_rain(rain_for(end - timedelta(days=7), end + timedelta(days=3), end + timedelta(hours=6)), surface.live_rain_path())
+    chandra = datetime(2026, 1, 26, 18, tzinfo=timezone.utc)
+    surface.save_rain(rain_for(datetime(2026, 1, 14, tzinfo=timezone.utc), datetime(2026, 2, 2, tzinfo=timezone.utc), chandra), surface.demo_rain_path())
+    t = pl.datetime_range(end, end + timedelta(hours=48), "10m", time_zone="UTC", eager=True)
+    tide = np.sin(np.linspace(0, 8 * np.pi, len(t))) * 0.7
+    p.live.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame({"station_id": ["Wexford_Bay"] * len(t), "time": t, "tide": tide, "surge": np.full(len(t), 0.55)}).with_columns(
+        (pl.col("tide") + pl.col("surge")).alias("total")).write_parquet(p.live / "surge.parquet")
