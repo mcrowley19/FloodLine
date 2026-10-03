@@ -34,6 +34,7 @@ docs at `/docs`.
 | `FLOODLINE_RAIN_GRID` | Rain grid in degrees (default 0.5 on the free tier, 0.25 with a key). |
 | `FLOODLINE_SURFACE_REFRESH_H` | Hours between high-resolution surface-water rain refreshes (default 12; each costs ~2,500 Open-Meteo calls). |
 | `FLOODLINE_DATA`, `FLOODLINE_MODELS` | Override `./data` and `./models`. |
+| `OLLAMA_URL`, `FLOODLINE_LLM_MODEL` | Ask Floodline's local LLM server (default `http://localhost:11434`) and model (default `qwen3:8b`). |
 
 ## Deploying (free: Render frontend + laptop backend)
 
@@ -134,7 +135,7 @@ long heads are "on" at the start of their window for most crossings.
 Per station (defaults, all overridable via `POST /settings`, globally or per station):
 `defence_length_m=200, bags_high=2 (5/15/30 bags per m for 1/2/3 high), crews=2,
 fill_rate_bags_per_crew_hour=100, travel_h=0.75, margin_h=2, cost_fill_unneeded_per_bag=2,
-cost_short=50000`.
+cost_short=50000, resupply_h=24`.
 
 - N = length × bags_per_m; L = N / (crews × fill_rate) + travel + margin;
   p* = cost_fill·N / (cost_fill·N + cost_short).
@@ -146,6 +147,13 @@ cost_short=50000`.
   negative `hours_remaining` means the deadline has passed.
 - Worked example: 100 m at 2 bags high → N = 1,500; 2 crews → L = 10.25 h; p* = 3,000/53,000 ≈ 0.057.
 - Risk = P(≤ 48 h) × exposure, scaled to 0–100 across stations.
+- **Supplies.** Each station's kit is its full defence: N sandbags, 13.6 kg (30 lb) of sand per
+  bag and 1 yd³ (0.76 m³) per 100 bags, polythene sheeting ≥0.15 mm (6 mil) covering both faces
+  (3 courses ≈ 0.3 m) plus a 1 m ground apron with 20% for 0.9 m laps, 20 t tipper loads, and
+  N / fill_rate crew-hours (ratios from the USACE / NDSU sandbagging guidance; the apron and
+  tipper payload are assumptions). p_need = P(≤ L + resupply_h), with `resupply_h=24`. If
+  p_need ≥ p* the whole kit is listed to source now; otherwise p_need × kit, so summing across
+  stations gives a risk-weighted pooled stock.
 
 ## Other flood types
 
@@ -212,7 +220,7 @@ All JSON / GeoJSON. CORS is open for `localhost` / `127.0.0.1` on any port.
 | `GET /stations` | `[{id, name, lat, lon, county}]` |
 | `GET /risk` | `[{id, name, lat, lon, level_now, p95, pct_of_record, p6, p24, p48, p120, risk, status, pred_cross_utc, fill_deadline_utc, bags_needed, rain48_p50, rain48_p90, as_of_utc, forecast_source}]`, risk desc |
 | `GET /station/{id}` | The above plus `history_72h`, `ensemble_fan` (per 6 h: p10/p50/p90 totals and cumulative), `ensemble` summary, `decision_inputs`, `decision` (L, p*, P(≤L)), `uncertainty_rain_p10_p90` (probabilities re-run with ensemble p10 / p90 rain), `shap_top5_24h` (calibrated log-odds contributions) |
-| `GET /lead-times` | `[{id, name, status, L, pred_cross_utc, fill_deadline_utc, hours_remaining, tasks: [{task, deadline_utc}]}]`. Tasks: rest centre standby (−24 h), public warning (−18 h), fill sandbags (deadline), clear culvert screens (−8 h), open collection points (−4 h). |
+| `GET /lead-times` | `[{id, name, status, L, pred_cross_utc, fill_deadline_utc, hours_remaining, tasks: [{task, deadline_utc}], supplies: {p_need, horizon_h, full_kit, items: [{key, label, unit, full, get}]}}]`. Tasks: rest centre standby (−24 h), public warning (−18 h), fill sandbags (deadline), clear culvert screens (−8 h), open collection points (−4 h). |
 | `GET /satellite/latest?bbox=minLon,minLat,maxLon,maxLat` | GFM FeatureCollection clipped to bbox; `properties: {observed_at, source, status, reason}` |
 | `GET /satellite/wms` | CDSE WMS config (`url`, `layer`, `max_cloud_cover_param: "MAXCC"`, GetMap params) or `{available: false}` |
 | `GET /data-status` | Station / row counts, last live reading, model metrics, health of OPW, OPW live, Open-Meteo archive / recent / IFS / AIFS, CFRAM, GFM, EMSR860, CDSE WMS |
@@ -226,10 +234,51 @@ All JSON / GeoJSON. CORS is open for `localhost` / `127.0.0.1` on any port.
 | `GET /groundwater?min_level=&county=` | `{counts, zones: [{zone_id, probability, area_ha, lat, lon, county, level, percentile, pct_30d/60d/90d, rain_*_incl_forecast, rain_next_7d}], polygons_wms}` (default `min_level=WATCH`) |
 | `GET /coastal?min_level=&county=` / `GET /coastal/{station_id}` | `{counts, stations: [{station_id, name, county, level, peak_total_m, peak_utc, tide_at_peak_m, surge_at_peak_m, max_surge_m, hw_p95, hw_p99, margin_to_p99_m, coastal10_km2_within_10km}]}`; detail adds an hourly `series` of tide / surge / total |
 | `GET /alerts?min_level=&county=` | `{counts_by_type, alerts: [{type: river\|surface_water\|groundwater\|coastal, id, name, county, lat, lon, level, headline, time_utc, score}]}`, most severe first |
+| `POST /ask` | `{question, history?, at?}` → `{answer, tools_used, model}`; see *Ask Floodline* below |
 | `GET /demo/surface-water?at=` / `/demo/groundwater?at=` / `/demo/alerts?at=` | Replay versions (`forecast_source: "proxy"`); `/demo/coastal` returns `status: "unavailable"` with the reason |
 
 Demo snapshots are precomputed into `data/demo.parquet` (by `demo-build`, or at server start if
 missing). Decisions are applied per request, so `/settings` changes show up in the replay too.
+
+## Ask Floodline (open-weights agent)
+
+`POST /ask` answers plain-text questions about the current data and how the system works. It
+runs **Qwen3 8B** (Apache-2.0 open weights) locally through [Ollama](https://ollama.com); no
+hosted LLM API is involved.
+
+```bash
+ollama pull qwen3:8b        # ~5 GB, once
+ollama serve                # if the Ollama app isn't already running
+```
+
+The harness is our own (`src/floodline/agent.py`, no agent framework). It gives the model a
+system prompt and five read-only tools that run against the server's in-memory state. A
+`/ask` call returns 503 rather than guessing when the model is unavailable.
+
+| Tool | What it returns |
+|---|---|
+| `system_status` | Data freshness, per-source health and the model's test accuracy (a trimmed `/data-status`) |
+| `river_risk` | Gauges ranked by risk, filterable by county / status, with counts per status |
+| `station_detail` | One gauge by name or id: probabilities, uncertainty band, decision inputs, 72 h level summary, top 5 SHAP factors |
+| `alerts` | The combined river / surface water / groundwater / coastal list (`/alerts`) |
+| `search_docs` | Keyword search over the sections of this file, for "how does it work" questions |
+
+The loop allows up to 6 tool rounds, then forces an answer. If the model tries to answer
+before calling any tool, it is nudged once to look the answer up first, and its text is only
+streamed after a lookup has run. Without this, Qwen3 8B sometimes answered replay questions
+from general knowledge and named the wrong counties. Thinking mode is off and temperature is 0.2.
+
+Body `{"question": "...", "history": [{"role": "user"|"assistant", "content": "..."}], "at": null, "stream": false}`.
+With `at` set, the river and hazard tools read the Storm Chandra replay snapshot instead of
+live data. Without `stream`, the response is `{answer, tools_used: [{tool, args}], model}`. With
+`"stream": true` it is NDJSON events (the frontend uses this): `tool` (a lookup ran), `delta`
+(answer text), `reset` (discard text so far), `done` (`tools_used`, `model`), or `error`. Returns 503
+with a hint if Ollama isn't running or the model isn't pulled. Tests (`tests/test_agent.py`)
+replace the model with a scripted stub, so they run offline.
+
+Observed on a MacBook Air M4 (24 GB) with the model already loaded: Qwen3 8B generates ~19 tokens/s.
+The first lookup lands after ~6 s, answer text starts at ~10–20 s, and a full answer takes
+~15–35 s. `FLOODLINE_LLM_MODEL=qwen3:4b` roughly halves that, at some cost in accuracy.
 
 ## Licences and attribution
 
@@ -264,9 +313,9 @@ missing). Decisions are applied per request, so `/settings` changes show up in t
 - **Satellite layers are observations, not warnings.** They arrive 6–48 h after acquisition, and
   Sentinel-1 revisits Ireland every 2–4 days, so they confirm flooding rather than warn of it.
   EMSR860 covers only the AOIs Copernicus mapped (Kilkenny delivered, Wexford not).
-- **The GFM client is untested against a live account** (no credentials were available when
-  building). It follows the published v2 API (login → AOI → products → download) and handles
-  both raster and vector payloads, but expect to adjust layer-name matching on first use.
+- **GFM** was verified against a live account on 2026-10-03: archives contain `ENSEMBLE_FLOOD` /
+  `ENSEMBLE_OBSWATER` binary GeoTIFFs (1 = flood/water, 255 = nodata), which are polygonised; the
+  bundled unfiltered flood GeoJSON is ignored when the GeoTIFF is present.
 - OPW past-flood records (floodinfo.ie) are not included: they are released on request only.
   That is also why the surface-water, groundwater and coastal indicators are uncalibrated rules.
   With the records (or council incident logs) the thresholds and weights could be fitted.

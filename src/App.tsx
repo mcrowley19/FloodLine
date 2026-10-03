@@ -6,6 +6,7 @@ import SatelliteBadge from './components/SatelliteBadge'
 import DemoPill from './components/DemoPill'
 import LeadTimesTab from './components/LeadTimesTab'
 import DataTab from './components/DataTab'
+import AskTab from './components/AskTab'
 import Toasts from './components/Toasts'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
       )}
       {tab === 'lead' && <LeadTimesTab />}
       {tab === 'data' && <DataTab />}
+      {tab === 'ask' && <AskTab />}
       <Navbar />
       <DemoPill />
       <Toasts />

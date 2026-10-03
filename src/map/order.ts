@@ -17,7 +17,6 @@ export const LAYER_ORDER = [
   'demo-sat-fill',
   'demo-sat-hatch',
   'demo-sat-line',
-  'risk-halo',
   'risk-points',
   'risk-selected',
 ] as const

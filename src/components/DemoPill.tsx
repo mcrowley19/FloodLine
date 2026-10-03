@@ -188,7 +188,7 @@ function Scrubber({ timeline, index, onChange }: { timeline: NonNullable<ReturnT
           return (
             <div key={i} className="absolute top-3 -translate-x-1/2" style={{ left: pos(ms) }} title={`EMSR860 acquisition ${fmtUtcShort(ms)}`}>
               <div className={`whitespace-nowrap text-[8px] uppercase tracking-wider text-cyan-200/90 ${labelled ? '' : 'invisible'}`}>satellite</div>
-              <div className="mx-auto h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_6px_#7FE3FF]" />
+              <div className="mx-auto h-2 w-px bg-cyan-300/80" />
             </div>
           )
         })}

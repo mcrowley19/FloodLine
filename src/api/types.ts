@@ -106,6 +106,25 @@ export interface StationDetail {
   predicted_crossing_utc?: string | null
 }
 
+export interface SupplyItem {
+  key: string
+  label: string
+  unit: string
+  /** quantity for the full defence */
+  full: number
+  /** quantity to source now, given the flood probability */
+  get: number
+}
+
+export interface Supplies {
+  /** P(river crosses P95 within fill lead time + resupply time) */
+  p_need: number
+  horizon_h: number
+  /** true when p_need clears p*, so the whole kit should be on hand */
+  full_kit: boolean
+  items: SupplyItem[]
+}
+
 /** One row of GET /lead-times (and GET /demo/lead-times?at=) */
 export interface LeadTimeRow {
   station_id: string
@@ -116,6 +135,7 @@ export interface LeadTimeRow {
   hours_remaining: number | null
   predicted_crossing_utc: string | null
   tasks: Task[]
+  supplies: Supplies | null
   lat?: number
   lon?: number
 }
@@ -182,12 +202,14 @@ export interface Attribution {
   url?: string | null
 }
 
+/** Decision-layer inputs (backend `DecisionInputs`); POST /settings wraps them as `{global: ...}` */
 export interface Settings {
   defence_length_m: number
   bags_high: number
   crews: number
-  cost_per_bag_eur: number
-  cost_per_crew_hour_eur: number
+  fill_rate_bags_per_crew_hour: number
+  cost_fill_unneeded_per_bag: number
+  cost_short: number
 }
 
 /** GET /data-status */
@@ -218,3 +240,31 @@ export interface DemoTimeline {
   steps: string[]
   satellite_acquisitions: SatelliteAcquisition[]
 }
+
+/* ---------- Ask Floodline (POST /ask) ---------- */
+
+export interface AskMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AskRequest {
+  question: string
+  history: AskMessage[]
+  /** demo snapshot time; omit for live */
+  at?: string | null
+}
+
+export interface AskToolUse {
+  tool: string
+  args: Record<string, unknown>
+}
+
+/** NDJSON events streamed by POST /ask */
+export type AskEvent =
+  | { type: 'delta'; text: string }
+  /** text so far was preamble before a tool call; discard it */
+  | { type: 'reset' }
+  | ({ type: 'tool' } & AskToolUse)
+  | { type: 'done'; tools_used: AskToolUse[]; model: string }
+  | { type: 'error'; detail: string }

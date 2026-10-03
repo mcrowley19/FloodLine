@@ -16,13 +16,13 @@ const colorExpr = [
 ] as const
 
 /**
- * Radius grows with risk_score and with zoom. `scale`/`add` let the halo and
+ * Radius grows with risk_score and with zoom. `scale`/`add` let the
  * selection ring derive from the same curve while keeping the zoom
  * interpolate at the top level (a MapLibre requirement).
  */
 const radiusExpr = (scale = 1, add = 0): ExpressionSpecification => {
   const stop = (base: number, k: number): ExpressionSpecification => ['+', add, ['*', scale, ['+', base, ['*', k, ['get', 'risk_score']]]]]
-  return ['interpolate', ['linear'], ['zoom'], 5, stop(2.5, 5), 8, stop(4, 9), 12, stop(7, 16)]
+  return ['interpolate', ['linear'], ['zoom'], 5, stop(1.5, 3), 8, stop(2.5, 5.5), 12, stop(4, 10)]
 }
 
 export function riskToGeoJSON(points: RiskPoint[]): GeoJSON.FeatureCollection {
@@ -48,7 +48,7 @@ export function riskToGeoJSON(points: RiskPoint[]): GeoJSON.FeatureCollection {
 
 /**
  * One circle per station, coloured by status, radius by risk score, with a
- * pulsing halo for PREPARE / FILL_NOW. Hover → popup; click → select station.
+ * white stroke for anything above CLEAR. Hover → popup; click → select station.
  */
 export function useRiskLayer(map: MLMap | null, points: RiskPoint[] | undefined, selectedId: string | null, onSelect: (id: string) => void) {
   const onSelectRef = useRef(onSelect)
@@ -61,19 +61,6 @@ export function useRiskLayer(map: MLMap | null, points: RiskPoint[] | undefined,
     if (!map) return
     if (!map.getSource(SOURCE)) map.addSource(SOURCE, { type: 'geojson', data: riskToGeoJSON([]), promoteId: 'station_id' })
 
-    addLayerOrdered(map, {
-      id: 'risk-halo',
-      type: 'circle',
-      source: SOURCE,
-      filter: ['in', ['get', 'status'], ['literal', ['FILL_NOW', 'PREPARE']]],
-      paint: {
-        'circle-color': colorExpr as unknown as string,
-        'circle-radius': radiusExpr(),
-        'circle-opacity': 0.5,
-        'circle-blur': 0.6,
-        'circle-pitch-alignment': 'map',
-      },
-    })
     addLayerOrdered(map, {
       id: 'risk-points',
       type: 'circle',
@@ -94,7 +81,7 @@ export function useRiskLayer(map: MLMap | null, points: RiskPoint[] | undefined,
       filter: ['==', ['get', 'station_id'], '__none__'],
       paint: {
         'circle-color': 'rgba(0,0,0,0)',
-        'circle-radius': radiusExpr(1, 5),
+        'circle-radius': radiusExpr(1, 4),
         'circle-stroke-color': '#ffffff',
         'circle-stroke-width': 2,
         'circle-stroke-opacity': 0.9,
@@ -131,20 +118,7 @@ export function useRiskLayer(map: MLMap | null, points: RiskPoint[] | undefined,
     map.on('mouseleave', 'risk-points', onLeave)
     map.on('click', 'risk-points', onClick)
 
-    // pulsing halo
-    let raf = 0
-    const start = performance.now()
-    const tick = (now: number) => {
-      if (!map.getLayer('risk-halo')) return
-      const phase = ((now - start) % 1800) / 1800
-      map.setPaintProperty('risk-halo', 'circle-radius', radiusExpr(1 + 1.6 * phase))
-      map.setPaintProperty('risk-halo', 'circle-opacity', 0.55 * (1 - phase))
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-
     return () => {
-      cancelAnimationFrame(raf)
       popup.remove()
       map.off('mousemove', 'risk-points', onMove)
       map.off('mouseleave', 'risk-points', onLeave)

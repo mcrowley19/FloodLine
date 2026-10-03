@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { DemoTimeline } from './api/types'
 
 export type Mode = 'live' | 'demo'
-export type Tab = 'map' | 'lead' | 'data'
+export type Tab = 'map' | 'lead' | 'data' | 'ask'
 
 export interface LayerToggles {
   observed: boolean

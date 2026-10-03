@@ -22,6 +22,16 @@ TASKS = [
     ("open collection points", 4.0),
 ]
 
+# Supply ratios. Sources: USACE / NDSU "Sandbagging for Flood Protection" (a cubic yard of sand
+# fills ~100 bags of 30 lb; 3 bag courses ~ 1 ft high; poly sheeting >= 6 mil with 3 ft
+# overlaps). Apron width and tipper payload are planning assumptions.
+SAND_T_PER_BAG = 30 * 0.4536 / 1000  # 30 lb fill
+SAND_M3_PER_BAG = 0.7646 / 100  # 1 yd^3 per 100 bags
+COURSE_HEIGHT_M = 0.3048 / 3
+SHEET_APRON_M = 1.0  # sheeting run out on the ground on the water side, weighted with bags
+SHEET_OVERLAP = 1.2  # 0.9 m overlaps between sheets
+TIPPER_PAYLOAD_T = 20.0
+
 
 @dataclass
 class DecisionInputs:
@@ -33,6 +43,7 @@ class DecisionInputs:
     margin_h: float = 2
     cost_fill_unneeded_per_bag: float = 2.0
     cost_short: float = 50000
+    resupply_h: float = 24  # time to source bags and sand before they can be filled
 
     @classmethod
     def keys(cls) -> set[str]:
@@ -54,6 +65,52 @@ def critical_ratio(d: DecisionInputs, n: int | None = None) -> float:
     n = bags_needed(d) if n is None else n
     over = d.cost_fill_unneeded_per_bag * n
     return over / (over + d.cost_short)
+
+
+def supplies_full(d: DecisionInputs, n: int | None = None) -> dict[str, float]:
+    """Everything needed to build the full defence once."""
+    n = bags_needed(d) if n is None else n
+    face = 2 * d.bags_high * COURSE_HEIGHT_M + SHEET_APRON_M
+    sand_t = n * SAND_T_PER_BAG
+    return {
+        "sandbags": n,
+        "sand_t": sand_t,
+        "sand_m3": n * SAND_M3_PER_BAG,
+        "sheeting_m2": d.defence_length_m * face * SHEET_OVERLAP,
+        "tipper_loads": math.ceil(sand_t / TIPPER_PAYLOAD_T) if n else 0,
+        "crew_hours": n / d.fill_rate_bags_per_crew_hour,
+    }
+
+
+SUPPLY_UNITS = {
+    "sandbags": ("Sandbags", "bags"),
+    "sand_t": ("Sand", "t"),
+    "sand_m3": ("Sand volume", "m³"),
+    "sheeting_m2": ("Polythene sheeting ≥0.15 mm", "m²"),
+    "tipper_loads": ("Tipper loads (20 t)", "loads"),
+    "crew_hours": ("Filling crew-hours", "h"),
+}
+
+
+def supplies(d: DecisionInputs, probs: dict[int, float], n: int | None = None) -> dict:
+    """What to source now, scaled by the chance the defence is needed.
+
+    The horizon is the fill lead time plus the time to source materials. If that probability
+    clears the newsvendor threshold p*, the whole kit is worth having on hand; below it the
+    station contributes its expected need (p × kit) to a pooled county stock.
+    """
+    n = bags_needed(d) if n is None else n
+    pstar = critical_ratio(d, n)
+    p = interp_prob(lead_time_h(d, n) + d.resupply_h, probs)
+    full_kit = p >= pstar
+    scale = 1.0 if full_kit else p
+    items = []
+    for key, qty in supplies_full(d, n).items():
+        label, unit = SUPPLY_UNITS[key]
+        get = qty * scale
+        get = math.ceil(get) if key in ("sandbags", "tipper_loads") else round(get, 1)
+        items.append({"key": key, "label": label, "unit": unit, "full": round(qty, 1), "get": get})
+    return {"p_need": round(p, 4), "horizon_h": round(lead_time_h(d, n) + d.resupply_h, 1), "full_kit": full_kit, "items": items}
 
 
 def monotone(probs: dict[int, float]) -> dict[int, float]:
@@ -138,6 +195,7 @@ def decide(
         "pred_cross_utc": iso(cross),
         "fill_deadline_utc": iso(deadline),
         "hours_remaining": round((deadline - now).total_seconds() / 3600, 1) if deadline is not None else None,
+        "supplies": supplies(d, probs, n),
     }
 
 
@@ -195,7 +253,7 @@ def validate_overrides(o: dict) -> dict:
         raise ValueError(f"unknown decision inputs: {sorted(bad)}")
     d = DecisionInputs(**{**asdict(DecisionInputs()), **o})
     bags_needed(d)
-    if d.crews <= 0 or d.fill_rate_bags_per_crew_hour <= 0 or d.cost_short <= 0 or d.defence_length_m < 0:
-        raise ValueError("crews, fill rate, cost_short must be > 0 and defence length >= 0")
+    if d.crews <= 0 or d.fill_rate_bags_per_crew_hour <= 0 or d.cost_short <= 0 or d.defence_length_m < 0 or d.resupply_h < 0:
+        raise ValueError("crews, fill rate, cost_short must be > 0; defence length and resupply_h >= 0")
     return o
 

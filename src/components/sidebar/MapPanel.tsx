@@ -106,7 +106,15 @@ export default function MapPanel() {
                       <span className="w-9 text-right text-[11px] tabular-nums text-white/70">{Math.round((p.p24 ?? 0) * 100)}%</span>
                     </div>
                     <div className="mt-1 flex items-center justify-between text-[11px] text-white/55">
-                      <span>{hrs != null && Number.isFinite(hrs) ? (hrs >= 0 ? `crosses in ~${fmtHours(hrs)}` : 'crossing passed') : 'no crossing predicted'}</span>
+                      <span>
+                        {p.current_level != null && p.p95_level != null && p.current_level >= p.p95_level
+                          ? 'above P95 now'
+                          : hrs != null && Number.isFinite(hrs)
+                            ? hrs >= 0
+                              ? `crosses in ~${fmtHours(hrs)}`
+                              : 'crossing passed'
+                            : 'no crossing predicted'}
+                      </span>
                       {p.bags_needed != null && p.bags_needed > 0 && <span className="tabular-nums">{p.bags_needed.toLocaleString()} bags</span>}
                     </div>
                   </button>

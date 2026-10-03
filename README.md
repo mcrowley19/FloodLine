@@ -2,7 +2,9 @@
 
 Ireland-wide flood lead-time tool for county councils. Full-screen MapLibre map of
 Ireland with OPW gauge risk, satellite-observed flooding, decision-layer lead
-times, and a replay of Storm Chandra (22–30 Jan 2026).
+times, a replay of Storm Chandra (22–30 Jan 2026), and an **Ask** tab where
+Qwen, an open-weights LLM running locally, answers questions about the data and
+the methods (see BACKEND.md, *Ask Floodline*).
 
 ![Floodline map tab](docs/screenshot.png)
 
@@ -21,6 +23,11 @@ pnpm install
 cp .env.example .env          # API_PROXY_TARGET (default http://localhost:8000)
 pnpm dev                      # http://localhost:5173
 ```
+
+Two pages share the build, split in `src/main.tsx`: the landing page at `/`
+(`src/landing/`) and the map app at `/map`. Each is its own chunk, so the
+landing page never downloads MapLibre. Hosts must rewrite unknown paths to
+`index.html` (`render.yaml` already does).
 
 The dev and preview servers proxy `/api/*` to `API_PROXY_TARGET`, so the browser
 only talks to its own origin and the backend needs no CORS setup. If the
@@ -111,9 +118,11 @@ src/store.ts              single Zustand store: mode, tab, selection, layer
                           toggles, demo timeline/index/playing, toasts, bbox
 src/map/                  MapView + one file per layer
 src/components/           Navbar, Sidebar (MapPanel, StationDetail),
-                          LeadTimesTab, DataTab, DemoPill, SatelliteBadge, Toasts
+                          LeadTimesTab, DataTab, AskTab, DemoPill, SatelliteBadge, Toasts
 src/geo/ireland.json      32 county polygons + dissolved island (OSM, ODbL)
 src/geo/rivers.json       78 rivers as MultiLineStrings (OSM waterway=river)
+src/landing/              marketing landing page: flooding hero, depth gauge,
+                          sections, Storm Chandra replay; links in links.ts
 ```
 
 ## Behaviour notes

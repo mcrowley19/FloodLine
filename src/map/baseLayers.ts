@@ -4,7 +4,7 @@ import type { FeatureCollection } from 'geojson'
 import { addLayerOrdered } from './order'
 
 export const SEA = '#0B2A4A'
-export const LAND = '#163B5C'
+export const LAND = '#2C3A2E'
 
 /**
  * Sea background + Ireland land fill + faint county borders.

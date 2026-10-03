@@ -1,0 +1,222 @@
+/* Landing page. Everything is scoped under .fl so none of it leaks into the map app. */
+
+.fl {
+  --ease: cubic-bezier(.45, .05, .55, .95);
+  --body: rgba(225, 240, 250, .7);
+  --muted: rgba(207, 234, 248, .7);
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: clip;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #E6F4FC;
+  /* One body of water, darkening toward the seabed. The hero hands off at #3D6680.
+     The deep stops use max() so they never fall behind the 2700px stop on short pages. */
+  background: linear-gradient(180deg,
+    #3D6680 0px, #3D6680 1860px,
+    #1E5A8A 2700px, #174C78 max(3000px, 31%), #0F3D63 max(3600px, 38%),
+    #0B2A4A max(4400px, 52%), #081F38 70%, #061A2E 86%, #04111F 100%);
+}
+.fl *, .fl *::before, .fl *::after { box-sizing: border-box; }
+.fl a { color: #7FE3FF; }
+.fl a:hover { color: #BFF2FF; }
+
+.fl .hd { font-family: 'Archivo', system-ui, sans-serif; font-stretch: 72%; font-variation-settings: "wdth" 72; }
+.fl .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+
+.fl .sub-h {
+  margin: 0;
+  max-width: 820px;
+  font-size: clamp(36px, 4.4vw, 60px);
+  line-height: 1.04;
+  font-weight: 650;
+  text-wrap: balance;
+  background: linear-gradient(180deg, #F4FCFF 0%, #CBEAFA 45%, #86BEE0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.fl .lede { margin: 28px 0 0; max-width: 680px; font-size: 17px; line-height: 1.65; color: rgba(225, 240, 250, .72); }
+.fl .body { margin: 10px 0 0; font-size: 15.5px; line-height: 1.65; color: var(--body); }
+.fl .h3 { margin: 0; font-size: 28px; font-weight: 650; color: #fff; }
+
+.fl .glass {
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-top-color: rgba(191, 240, 255, .42);
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  box-shadow: 0 24px 60px rgba(2, 14, 28, .35);
+}
+.fl .glow { box-shadow: 0 24px 60px rgba(2, 14, 28, .35), 0 0 0 1px rgba(79, 195, 247, .14), 0 0 36px rgba(79, 195, 247, .16); }
+
+.fl .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 26px;
+  border-radius: 999px;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background .6s var(--ease);
+}
+.fl .btn-solid { background: #4FC3F7; color: #062038; font-weight: 600; }
+.fl .btn-solid:hover { background: #7FE3FF; color: #062038; }
+.fl .btn-glass { background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .22); color: #fff; font-weight: 500; }
+.fl .btn-glass:hover { background: rgba(255, 255, 255, .18); color: #fff; }
+.fl .btn:focus-visible, .fl button:focus-visible, .fl a:focus-visible { outline: 2px solid #7FE3FF; outline-offset: 3px; }
+
+.fl .chip { display: inline-block; padding: 5px 10px; border-radius: 7px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+
+/* layout */
+.fl .sec { position: relative; z-index: 2; padding: 120px 0; }
+.fl .wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.fl .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 64px; align-items: center; }
+.fl .split-r { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 64px; align-items: center; }
+.fl .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px 32px; }
+.fl .three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; }
+.fl .four { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 48px 32px; }
+.fl .replay { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 48px; padding: 44px; border-radius: 30px; }
+.fl .replay-town { border-radius: 22px; background: rgba(4, 20, 36, .35); border: 1px solid rgba(255, 255, 255, .12); padding: 26px; }
+.fl .replay-row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 14px; align-items: center; padding: 14px 16px; }
+.fl .foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px; }
+
+/* hero */
+.fl .hero { position: relative; height: calc(clamp(680px, 100vh, 960px) + 900px); }
+.fl .hero-pin {
+  position: sticky;
+  top: 0;
+  height: clamp(680px, 100vh, 960px);
+  overflow: hidden;
+  background: linear-gradient(180deg, #CFCFCD 0%, #E4E2DE 35%, #EFECE7 60%, #F0EDE8 100%);
+}
+/* 165vh cap keeps the spire on screen on short laptops; 900px floor keeps the buildings readable on phones */
+.fl .town {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 1;
+  width: max(min(100%, 165vh), 900px);
+  aspect-ratio: 16 / 9;
+  transform: translateX(-50%);
+}
+.fl .town-img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 95%, transparent 100%), linear-gradient(180deg, transparent 0, #000 8%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, #000 0, #000 95%, transparent 100%), linear-gradient(180deg, transparent 0, #000 8%);
+  mask-composite: intersect;
+}
+.fl .river {
+  position: absolute;
+  left: -100vw;
+  right: -100vw;
+  bottom: -40px;
+  background: linear-gradient(180deg, #4F5F66 0, #6F828B 10px, #7C8F98 70px, #67849A 190px, #4E7690 300px, #3D6680 420px);
+}
+.fl .reflection {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  transform: scaleY(-1);
+  opacity: .24;
+  filter: blur(1.4px) saturate(.8);
+  /* mask is in the image's own coordinates, so the reflected sky (its top) is the deep end */
+  -webkit-mask-image: linear-gradient(180deg, transparent 15%, #000 55%);
+  mask-image: linear-gradient(180deg, transparent 15%, #000 55%);
+}
+.fl .hero-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 80px;
+  z-index: 5;
+  background: linear-gradient(180deg, rgba(61, 102, 128, 0), #3D6680);
+}
+.fl .hero-title {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 38%;
+  z-index: 6;
+  transform: translateY(-50%);
+  margin: 0;
+  padding: 0 24px;
+  text-align: center;
+  font-size: clamp(46px, 6.1vw, 92px);
+  line-height: 1;
+  font-weight: 750;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(8, 30, 50, .35), 0 4px 24px rgba(8, 30, 50, .45);
+  text-wrap: balance;
+}
+.fl .hero-cta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(38% + clamp(60px, 5.5vw, 80px));
+  z-index: 7;
+  display: flex;
+  justify-content: center;
+}
+.fl .hero-cta .btn { min-height: 52px; padding: 0 28px; font-size: 16px; box-shadow: 0 10px 34px rgba(79, 195, 247, .35); }
+
+/* depth gauge */
+.fl .gauge {
+  position: fixed;
+  left: 28px;
+  top: 50%;
+  z-index: 40;
+  width: 70px;
+  height: 320px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: #CFEAF8;
+  pointer-events: none;
+}
+
+/* motion: slow and heavy, never bouncy */
+.fl .bob { animation: fl-bob 7s var(--ease) infinite; }
+.fl .mote { animation: fl-mote 18s var(--ease) infinite; }
+.fl .pulse { transform-box: fill-box; transform-origin: center; animation: fl-pulse 3.2s cubic-bezier(.2, .6, .4, 1) infinite; }
+@keyframes fl-bob {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50% { transform: translateY(6px) rotate(calc(var(--r, 0deg) + 4deg)); }
+}
+@keyframes fl-mote {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(22px, -28px, 0); }
+}
+@keyframes fl-pulse {
+  0% { transform: scale(1); opacity: .75; }
+  100% { transform: scale(3.4); opacity: 0; }
+}
+
+.fl .day-btn:hover { background: rgba(255, 255, 255, .08) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fl *, .fl *::before, .fl *::after { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 900px) {
+  .fl .gauge, .fl .hide-sm { display: none !important; }
+  .fl .sec { padding: 84px 0; }
+  .fl .split, .fl .split-r, .fl .two, .fl .three, .fl .replay { grid-template-columns: minmax(0, 1fr); gap: 36px; }
+  .fl .four { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; }
+  .fl .replay { padding: 24px; }
+}
+@media (max-width: 520px) {
+  .fl .replay-town { padding: 18px; }
+  .fl .replay-row { grid-template-columns: 96px minmax(0, 1fr); gap: 10px; padding: 12px; }
+}

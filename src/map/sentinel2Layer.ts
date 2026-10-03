@@ -30,7 +30,7 @@ function tileTemplate(wms: WmsInfo): string | null {
 
 /**
  * Sentinel-2 WMS context imagery. Shown only when the Imagery toggle is on AND
- * zoom ≥ 11; while shown, the land fill drops to 30 % so imagery shows through.
+ * zoom ≥ 11; while shown, the land fill is hidden so the imagery isn't tinted.
  */
 export function useSentinel2Layer(map: MLMap | null, wms: WmsInfo | undefined, enabled: boolean) {
   const available = !!wms?.available && !!tileTemplate(wms)
@@ -67,7 +67,7 @@ export function useSentinel2Layer(map: MLMap | null, wms: WmsInfo | undefined, e
     const applyLand = () => {
       if (!map.getLayer('land')) return
       const showing = on && map.getZoom() >= S2_MIN_ZOOM
-      map.setPaintProperty('land', 'fill-opacity', showing ? 0.3 : 1)
+      map.setPaintProperty('land', 'fill-opacity', showing ? 0 : 1)
     }
     applyLand()
     map.on('zoom', applyLand)

@@ -85,7 +85,11 @@ class Predictor:
         """Top-5 feature contributions (calibrated log-odds units) for one row."""
         contrib = self.boosters[h].predict(self._matrix([row]), pred_contrib=True)[0][:-1] * self.calib[h]["a"]
         order = np.argsort(-np.abs(contrib))[:5]
-        return [{"feature": FEATURES[i], "value": round(row[FEATURES[i]], 3), "contribution": round(float(contrib[i]), 4)} for i in order]
+        # A missing feature (e.g. a lag over a gap in the gauge feed) is NaN, which isn't valid JSON.
+        return [
+            {"feature": FEATURES[i], "value": round(v, 3) if np.isfinite(v := row[FEATURES[i]]) else None, "contribution": round(float(contrib[i]), 4)}
+            for i in order
+        ]
 
 
 def future_from_summary(summary: dict, pct: str = "p50") -> dict[str, float]:

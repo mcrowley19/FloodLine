@@ -83,3 +83,24 @@ def test_task_list_offsets():
 def test_risk_normalised():
     assert risk_scores([0.5, 0.25, 0.0], [2.0, 2.0, 5.0]) == [100.0, 50.0, 0.0]
     assert risk_scores([0.0], [1.0]) == [0.0]
+
+
+def test_supplies_scale_with_probability():
+    from floodline.decision import supplies
+
+    d = DecisionInputs(defence_length_m=100)  # N = 1500, L = 10.25 h, p* = 0.0566
+    low = supplies(d, {6: 0.0, 24: 0.01, 48: 0.02, 120: 0.03})
+    assert not low["full_kit"] and low["horizon_h"] == 34.2
+    bags = next(i for i in low["items"] if i["key"] == "sandbags")
+    assert bags["full"] == 1500 and 0 < bags["get"] < 1500
+
+    high = supplies(d, {6: 0.05, 24: 0.4, 48: 0.6, 120: 0.8})
+    assert high["full_kit"]
+    got = {i["key"]: i["get"] for i in high["items"]}
+    assert got["sandbags"] == 1500
+    assert got["sand_t"] == pytest.approx(20.4, abs=0.1)  # 30 lb per bag
+    assert got["tipper_loads"] == 2
+    assert got["crew_hours"] == 15.0
+
+    none = supplies(d, {6: 0.0, 24: 0.0, 48: 0.0, 120: 0.0})
+    assert all(i["get"] == 0 for i in none["items"])

@@ -24,7 +24,8 @@ log = logging.getLogger("floodline.satellite")
 EMSR_CODE = "EMSR860"
 # Vector layers that represent observed flooding (modelled / depth layers are skipped).
 EMSR_LAYERS = ("observedEventA", "maximumFloodExtentA")
-GFM_LAYER_KEYS = {"observed_flood_extent": ("flood_extent", "floodextent", "observed_flood"), "observed_water": ("observed_water", "observedwater")}
+# GFM archives name these e.g. EU_..._ENSEMBLE_FLOOD_<time>_....tif / ENSEMBLE_OBSWATER_...
+GFM_LAYER_KEYS = {"observed_flood_extent": ("ensemble_flood", "flood_extent", "floodextent", "observed_flood"), "observed_water": ("ensemble_obswater", "observed_water", "observedwater")}
 MIN_POLY_HA = 0.5
 
 
@@ -221,14 +222,20 @@ async def _features_from_gfm_blob(blob: bytes) -> list[dict]:
     except zipfile.BadZipFile:
         js = json.loads(blob)
         return js.get("features", [])
-    for n in names:
+    def layer_of(n: str) -> str | None:
         low = n.lower().replace("-", "_")
-        layer = next((k for k, keys in GFM_LAYER_KEYS.items() if any(s in low for s in keys)), None)
+        return next((k for k, keys in GFM_LAYER_KEYS.items() if any(s in low for s in keys)), None)
+
+    # GFM also ships an unfiltered GeoJSON of the flood raster; prefer the raster when both exist.
+    tif_layers = {layer_of(n) for n in names if n.lower().endswith((".tif", ".tiff"))}
+    for n in names:
+        low = n.lower()
+        layer = layer_of(n)
         if layer is None:
             continue
         if low.endswith((".tif", ".tiff")):
             feats.extend(await asyncio.to_thread(polygonise_tif, z.read(n), layer))
-        elif low.endswith((".geojson", ".json")):
+        elif low.endswith((".geojson", ".json")) and layer not in tif_layers:
             for f in json.loads(z.read(n)).get("features", []):
                 f.setdefault("properties", {})["layer"] = layer
                 feats.append(f)

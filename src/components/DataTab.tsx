@@ -6,7 +6,8 @@ import { fmtRelative, fmtUtcLong, parseIso } from '../lib/time'
 import { useNow } from '../hooks/useNow'
 import { EmptyState, SectionTitle, Skeleton, Stat } from './ui'
 
-const DEFAULT_SETTINGS: Settings = { defence_length_m: 200, bags_high: 3, crews: 2, cost_per_bag_eur: 2.5, cost_per_crew_hour_eur: 180 }
+// Backend DecisionInputs defaults (src/floodline/decision.py)
+const DEFAULT_SETTINGS: Settings = { defence_length_m: 200, bags_high: 2, crews: 2, fill_rate_bags_per_crew_hour: 100, cost_fill_unneeded_per_bag: 2, cost_short: 50000 }
 
 const EXPECTED_SOURCES = ['OPW', 'Open-Meteo IFS', 'Open-Meteo AIFS', 'CFRAM', 'GFM', 'EMSR860', 'CDSE WMS']
 
@@ -94,11 +95,8 @@ export default function DataTab() {
           <ul className="flex flex-col divide-y divide-white/10">
             {sources.map((s) => (
               <li key={s.name} className="flex items-center justify-between gap-3 py-1.5 text-[12px]" title={s.reason ?? undefined}>
-                <span className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${!d ? 'bg-white/20' : s.ok ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-red-400 shadow-[0_0_6px_#f87171]'}`} />
-                  {s.name}
-                </span>
-                <span className="truncate text-right text-[11px] text-white/50">
+                <span>{s.name}</span>
+                <span className={`truncate text-right text-[11px] ${d && !s.ok ? 'text-red-300' : 'text-white/50'}`}>
                   {!d ? '…' : s.ok ? (s.last_updated_utc ? fmtRelative(parseIso(s.last_updated_utc) ?? now, now) : 'ok') : (s.reason ?? 'down')}
                 </span>
               </li>
@@ -162,8 +160,9 @@ const FIELDS: { key: keyof Settings; label: string; unit: string; step: number }
   { key: 'defence_length_m', label: 'Defence length', unit: 'm', step: 10 },
   { key: 'bags_high', label: 'Bags high', unit: 'bags', step: 1 },
   { key: 'crews', label: 'Crews', unit: '', step: 1 },
-  { key: 'cost_per_bag_eur', label: 'Cost per bag', unit: '€', step: 0.1 },
-  { key: 'cost_per_crew_hour_eur', label: 'Crew cost', unit: '€/h', step: 5 },
+  { key: 'fill_rate_bags_per_crew_hour', label: 'Fill rate', unit: 'bags/crew·h', step: 10 },
+  { key: 'cost_fill_unneeded_per_bag', label: 'Wasted bag cost', unit: '€', step: 0.5 },
+  { key: 'cost_short', label: 'Cost if unprotected', unit: '€', step: 1000 },
 ]
 
 function SettingsForm({ initial }: { initial?: Settings }) {
@@ -177,7 +176,7 @@ function SettingsForm({ initial }: { initial?: Settings }) {
       }}
       className="flex flex-col gap-3"
     >
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
         {FIELDS.map((f) => (
           <label key={f.key} className="flex flex-col gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/50">
             {f.label}

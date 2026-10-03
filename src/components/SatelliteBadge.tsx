@@ -29,7 +29,6 @@ export default function SatelliteBadge() {
   const n = d.features?.features?.length ?? 0
   return (
     <Badge className="text-cyan-100" title={at ? `${fmtUtcLong(at)} · ${n} polygon${n === 1 ? '' : 's'} in view` : 'Observed flooding'}>
-      <span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_8px_#7FE3FF]" />
       {mode === 'demo' ? 'EMSR860' : (d.source ?? 'Sentinel-1')} observed{at ? <> · {fmtRelative(at, now)}</> : null}
     </Badge>
   )

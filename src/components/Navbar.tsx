@@ -6,6 +6,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'map', label: 'Map' },
   { id: 'lead', label: 'Lead Times' },
   { id: 'data', label: 'Data' },
+  { id: 'ask', label: 'Ask' },
 ]
 
 export default function Navbar() {
@@ -49,7 +50,6 @@ export default function Navbar() {
           </span>
         ) : (
           <span className="inline-flex items-center gap-2 pr-2 text-[12px] text-white/80">
-            <span className="live-dot inline-block h-2 w-2 rounded-full bg-emerald-400" />
             <span className="tabular-nums">
               live<span className="hidden sm:inline"> <span className="text-white/50">·</span> {fmtUtcTime(now)}</span>
             </span>

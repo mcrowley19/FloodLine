@@ -12,8 +12,9 @@ from datetime import datetime, timezone
 import polars as pl
 from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
-from . import decision, demo, satellite
+from . import agent, decision, demo, satellite
 from .config import HORIZONS, paths, read_health, utcnow
 from .hazard_state import LEVEL_RANK, HazardState, combined_alerts
 from .service import LiveState, assemble, lead_time_rows, public_risk
@@ -188,6 +189,9 @@ def create_app(start_background: bool = True) -> FastAPI:
 
     @app.get("/data-status")
     def data_status():
+        return _data_status()
+
+    def _data_status():
         lv = live()
         p = paths()
         health = read_health()
@@ -210,6 +214,7 @@ def create_app(start_background: bool = True) -> FastAPI:
             "risk_computed_utc": decision.iso(lv.computed_at) if lv.computed_at else None,
             "model_metrics": metrics,
             "sources": {s: health.get(s, {"ok": None, "detail": "not checked yet"}) for s in HEALTH_SOURCES},
+            "settings": decision.asdict(decision.DecisionInputs(**{**decision.asdict(decision.DecisionInputs()), **decision.load_settings().get("global", {})})),
             "now_utc": decision.iso(utcnow()),
         }
 
@@ -334,6 +339,53 @@ def create_app(start_background: bool = True) -> FastAPI:
         if county:
             rows = [r for r in rows if (r.get("county") or "").lower() == county.lower()]
         return {"as_of_utc": decision.iso(demo.nearest_snapshot(t)), "forecast_source": "proxy", "counts_by_type": _type_counts(rows), "alerts": rows}
+
+    # ---------- Ask Floodline (open-weights LLM agent) ----------
+
+    @app.post("/ask")
+    async def ask(payload: dict = Body(..., examples=[{"question": "Which gauges in Cork need sandbags?", "history": [], "at": None}])):
+        q = str(payload.get("question") or "").strip()
+        if not q:
+            raise HTTPException(422, "question is required")
+        if len(q) > 2000:
+            raise HTTPException(422, "question is too long (max 2000 characters)")
+        h = state["hazards"]
+        if payload.get("at"):
+            t = _parse_at(payload["at"])
+            dm = state["demo"]
+            river = dm.rows(t)
+            surf = gw = []
+            if dm.surface is not None and dm.groundwater is not None:
+                _, surf = dm.hazard_rows("surface", t)
+                _, gw = dm.hazard_rows("groundwater", t)
+                for r in gw:
+                    r["county"] = h.nearest_county(r["lat"], r["lon"])
+            ctx = agent.Context(live(), h, _data_status, river, surf, gw, [], demo_at=decision.iso(demo.nearest_snapshot(t)))
+        else:
+            ctx = agent.Context(live(), h, _data_status, live().rows, h.surface_rows, h.groundwater_rows, h.coastal_rows)
+        history = payload.get("history") if isinstance(payload.get("history"), list) else []
+        if not payload.get("stream"):
+            try:
+                return await agent.ask(q, ctx, history)
+            except agent.AgentUnavailable as e:
+                raise HTTPException(503, str(e))
+        # Streamed as NDJSON events (see agent.ask_stream). The first event is awaited here so an
+        # unreachable model still gets a proper 503 instead of a broken stream.
+        events = agent.ask_stream(q, ctx, history)
+        try:
+            first = await anext(events)
+        except agent.AgentUnavailable as e:
+            raise HTTPException(503, str(e))
+
+        async def body():
+            yield json.dumps(first) + "\n"
+            try:
+                async for ev in events:
+                    yield json.dumps(ev, default=str) + "\n"
+            except agent.AgentUnavailable as e:
+                yield json.dumps({"type": "error", "detail": str(e)}) + "\n"
+
+        return StreamingResponse(body(), media_type="application/x-ndjson", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     return app
 

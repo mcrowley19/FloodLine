@@ -106,12 +106,29 @@ function riskAt(t, live) {
   return { generated_at: new Date(t).toISOString(), stations }
 }
 
+// Same ratios as floodline.decision.supplies: 200 m at 2 bags high, p* ~ 0.11.
+function suppliesFor(p48) {
+  const n = 3000
+  const full = { sandbags: n, sand_t: n * 0.0136, sand_m3: n * 0.007646, sheeting_m2: 200 * 1.41 * 1.2, tipper_loads: Math.ceil((n * 0.0136) / 20), crew_hours: n / 100 }
+  const labels = { sandbags: ['Sandbags', 'bags'], sand_t: ['Sand', 't'], sand_m3: ['Sand volume', 'm³'], sheeting_m2: ['Polythene sheeting ≥0.15 mm', 'm²'], tipper_loads: ['Tipper loads (20 t)', 'loads'], crew_hours: ['Filling crew-hours', 'h'] }
+  const full_kit = p48 >= 0.107
+  const scale = full_kit ? 1 : p48
+  return {
+    p_need: +p48.toFixed(4), horizon_h: 41.8, full_kit,
+    items: Object.entries(full).map(([key, q]) => {
+      const g = q * scale
+      return { key, label: labels[key][0], unit: labels[key][1], full: +q.toFixed(1), get: key === 'sandbags' || key === 'tipper_loads' ? Math.ceil(g) : +g.toFixed(1) }
+    }),
+  }
+}
+
 function leadTimesAt(t, live) {
   return riskAt(t, live).stations.map((r) => ({
     station_id: r.station_id, name: r.name, county: r.county, status: r.status,
     fill_deadline_utc: r.fill_deadline_utc,
     hours_remaining: r.hours_to_crossing != null ? r.hours_to_crossing - 4 : null,
     predicted_crossing_utc: r.predicted_crossing_utc, lat: r.lat, lon: r.lon,
+    supplies: suppliesFor(r.p48),
     tasks: r.status === 'CLEAR' ? [] : [
       { name: 'Mobilise crew', deadline_utc: new Date(t + (r.hours_to_crossing - 10) * H).toISOString() },
       { name: 'Fill bags', deadline_utc: new Date(t + (r.hours_to_crossing - 6) * H).toISOString() },

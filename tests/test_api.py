@@ -37,7 +37,7 @@ def test_station_detail(client):
 def test_lead_times(client):
     r = client.get("/lead-times").json()
     assert len(r) == 3
-    assert {"id", "name", "status", "L", "pred_cross_utc", "fill_deadline_utc", "hours_remaining", "tasks"} <= set(r[0])
+    assert {"id", "name", "status", "L", "pred_cross_utc", "fill_deadline_utc", "hours_remaining", "tasks", "supplies"} <= set(r[0])
     for row in r:
         if row["pred_cross_utc"]:
             assert {t["task"] for t in row["tasks"]} == {

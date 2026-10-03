@@ -91,12 +91,10 @@ export default function StationDetail({ id }: { id: string }) {
             <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px]">
               {sat.data?.status === 'unavailable' ? (
                 <>
-                  <span className="h-2 w-2 rounded-full bg-white/30" />
                   <span className="text-white/60">Satellite: unavailable{sat.data.reason ? ` · ${sat.data.reason}` : ''}</span>
                 </>
               ) : flood && flood.distanceKm <= FLOOD_PROXIMITY_KM ? (
                 <>
-                  <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_8px_#7FE3FF]" />
                   <span>
                     Observed flooding {flood.distanceKm < 0.05 ? 'at station' : `${flood.distanceKm.toFixed(1)} km away`}
                     {(() => {

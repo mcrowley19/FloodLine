@@ -67,6 +67,7 @@ def lead_time_rows(rows: list[dict]) -> list[dict]:
                 "fill_deadline_utc": r["fill_deadline_utc"],
                 "hours_remaining": r["hours_remaining"],
                 "tasks": decision.task_list(cross, deadline),
+                "supplies": r["supplies"],
                 **({"forecast_source": r["forecast_source"]} if "forecast_source" in r else {}),
             }
         )
