@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Map as MLMap, AttributionControl, NavigationControl } from 'maplibre-gl'
+import './worker'
 import type { FeatureCollection } from 'geojson'
 import irelandUrl from '../geo/ireland.json?url'
 import riversUrl from '../geo/rivers.json?url'
