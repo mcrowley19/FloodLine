@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties } from 'react'
 
 export type Status = 'FILL NOW' | 'PREPARE' | 'WATCH'
 
@@ -8,9 +8,6 @@ export const STATUS: Record<Status, { bg: string; fg: string }> = {
   PREPARE: { bg: '#FF9A3C', fg: '#2B1403' },
   WATCH: { bg: '#FFD166', fg: '#2B2003' },
 }
-
-/** Sentinel-1 observed flooding. */
-export const HATCH = 'repeating-linear-gradient(135deg, rgba(127,227,255,.8) 0 3px, rgba(127,227,255,.15) 3px 7px)'
 
 export function StatusChip({ status, style }: { status: Status; style?: CSSProperties }) {
   return (
@@ -30,23 +27,6 @@ export function Logo({ size = 28, ring, fill, text = 22 }: { size?: number; ring
       </svg>
       <span className="hd" style={{ fontSize: text, fontWeight: 700 }}>Floodline</span>
     </>
-  )
-}
-
-/** Dashed box standing in for an image that still has to be generated, with its prompt inside. */
-export function ImagePlaceholder({ file, prompt, ratio, label = 'Image to generate' }: { file?: string; prompt: ReactNode; ratio: string; label?: string }) {
-  return (
-    <div
-      role="img"
-      aria-label={file ? `Placeholder for ${file}` : `Placeholder: ${label}`}
-      style={{ aspectRatio: ratio, border: '1px dashed rgba(255,255,255,.28)', borderRadius: 18, padding: 18, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-    >
-      <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,.55)' }}>{label}</p>
-      <div>
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: 'rgba(255,255,255,.65)' }}>{prompt}</p>
-        {file && <p style={{ margin: '8px 0 0', fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{file}</p>}
-      </div>
-    </div>
   )
 }
 

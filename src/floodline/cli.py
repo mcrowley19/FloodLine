@@ -7,6 +7,7 @@ import asyncio
 import logging
 import time
 
+from . import dotenv  # noqa: F401  (loads .env before config reads the environment)
 from .config import paths, setup_logging
 
 log = logging.getLogger("floodline")

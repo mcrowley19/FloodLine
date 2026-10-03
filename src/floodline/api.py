@@ -7,7 +7,7 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import polars as pl
 from fastapi import Body, FastAPI, HTTPException, Query
@@ -89,6 +89,25 @@ class Demo:
         probs = {h: d[f"prob_{h}"].to_numpy() for h in HORIZONS}
         return assemble(metas, probs, snap, self.cutoffs)
 
+    def detail(self, sid: str, at: datetime) -> dict | None:
+        """Station detail as of a replay snapshot: the snapshot's decision row plus the 72 h
+        level history up to it. No ensemble fan or SHAP, which are only kept for live."""
+        row = next((r for r in self.rows(at) if r["id"] == sid), None)
+        if row is None:
+            return None
+        snap = demo.nearest_snapshot(at)
+        lp = paths().levels / f"{sid}.parquet"
+        hist = pl.read_parquet(lp).filter(pl.col("time").is_between(snap - timedelta(hours=72), snap)) if lp.exists() else pl.DataFrame({"time": [], "level": []})
+        return {
+            **public_risk(row),
+            "county": row.get("county"),
+            "history_72h": [{"t": decision.iso(t), "level": round(v, 3)} for t, v in zip(hist["time"], hist["level"]) if v == v],
+            "ensemble_fan": [],
+            "decision_inputs": decision.asdict(decision.inputs_for(sid)),
+            "decision": {k: row[k] for k in ("lead_time_h", "p_star", "p_within_L", "hours_remaining")},
+            "shap_top5_24h": [],
+        }
+
     def hazard_rows(self, kind: str, at: datetime) -> tuple[datetime, list[dict]]:
         df = self.surface if kind == "surface" else self.groundwater
         if df is None:
@@ -162,7 +181,12 @@ def create_app(start_background: bool = True) -> FastAPI:
         return [public_risk(r) for r in live().rows]
 
     @app.get("/station/{sid}")
-    def station(sid: str):
+    def station(sid: str, at: str | None = None):
+        if at:
+            d = state["demo"].detail(sid.zfill(5), _parse_at(at))
+            if d is None:
+                raise HTTPException(404, f"no replay snapshot for station {sid}")
+            return d
         d = live().detail(sid.zfill(5))
         if d is None:
             raise HTTPException(404, f"no live prediction for station {sid}")

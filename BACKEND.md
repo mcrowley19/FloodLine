@@ -43,13 +43,16 @@ limit, so the backend runs on a laptop instead:
 
 ```bash
 uv run floodline all --no-serve   # once, if data/ and models/ are not built yet
-scripts/serve-public.sh           # server + free Cloudflare quick tunnel; keeps the Mac awake
+scripts/serve-public.sh           # server + Tailscale Funnel at a fixed URL; keeps the Mac awake
 ```
 
-The script restarts the server if it exits and prints a `https://….trycloudflare.com` URL.
-`render.yaml` deploys only the static frontend (free), rewriting `/api/*` to that URL so no CORS is
-needed. The tunnel URL changes each time the script starts: update the `/api/*` rule in the Render
-dashboard (static site → Redirects/Rewrites). `FLOODLINE_CORS_ORIGINS` (comma-separated) allows
+The script restarts the server if it exits and exposes it with Tailscale Funnel at this Mac's fixed
+`https://<machine>.<tailnet>.ts.net` URL (needs the Tailscale app signed in, and Funnel enabled for
+the tailnet once; the first run prints the link). `render.yaml` deploys only the static frontend
+(free), rewriting `/api/*` to that URL so no CORS is needed. The URL never changes, so the `/api/*`
+rule (static site → Redirects/Rewrites, action **Rewrite**, not Redirect) is set once.
+`TUNNEL=quick scripts/serve-public.sh` uses a Cloudflare quick tunnel instead, whose
+`trycloudflare.com` URL changes on every start. `FLOODLINE_CORS_ORIGINS` (comma-separated) allows
 extra browser origins if the frontend calls the API directly via `VITE_API_URL` instead.
 
 ## Observed timings

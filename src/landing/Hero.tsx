@@ -3,6 +3,7 @@ import { Logo } from './ui'
 import { APP_URL } from './links'
 import town from './assets/hero-town-cartoon.jpg'
 import bin from './assets/bin.png'
+import cone from './assets/cone.png'
 
 /** Scroll distance over which the river rises, in px. The header adds this as runway. */
 const RUNWAY = 900
@@ -48,18 +49,14 @@ export default function Hero() {
 
           {/* bin and cone stand on the street until the water reaches them, then ride up with it */}
           <div style={{ position: 'absolute', inset: 0, clipPath: belowSurface }}>
-            <div style={{ position: 'absolute', left: '6%', top: `calc(min(72.5%, ${water}% + 22px) - 69px)` }}>
+            <div style={{ position: 'absolute', left: '6%', top: `calc(min(73.8%, ${water}% + 22px) - 70px)` }}>
               <div className={floating ? 'bob' : undefined} style={{ ['--r' as string]: '-10deg' }}>
-                <img src={bin} alt="" style={{ display: 'block', width: 46, height: 'auto' }} />
+                <img src={bin} alt="" style={{ display: 'block', width: 46, height: 'auto', filter: 'drop-shadow(0 2px 1.5px rgba(30, 30, 30, .35))' }} />
               </div>
             </div>
-            <div style={{ position: 'absolute', right: '5%', top: `calc(min(72%, ${water}% + 14px) - 46px)` }}>
+            <div style={{ position: 'absolute', right: '5%', top: `calc(min(72%, ${water}% + 14px) - 50px)` }}>
               <div className={floating ? 'bob' : undefined} style={{ ['--r' as string]: '14deg', animationDelay: '-4.6s' }}>
-                <svg width="34" height="46" viewBox="0 0 40 54" fill="none" style={{ display: 'block' }}>
-                  <path d="M20 2 L33 46 H7 Z" fill="#E7672C" />
-                  <path d="M15.5 17 H24.5 L27 26 H13 Z M11.5 31 H28.5 L30.5 38 H9.5 Z" fill="#F4F1EA" />
-                  <rect x="2" y="45" width="36" height="7" rx="1.5" fill="#B9461A" />
-                </svg>
+                <img src={cone} alt="" style={{ display: 'block', width: 'auto', height: 50 }} />
               </div>
             </div>
           </div>

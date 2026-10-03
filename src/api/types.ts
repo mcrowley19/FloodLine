@@ -166,11 +166,11 @@ export interface WmsInfo {
   reason?: string | null
   /** WMS GetMap base URL (without query) */
   url?: string
-  layers?: string
-  styles?: string
-  format?: string
-  version?: string
-  /** Optional ready-made XYZ/WMS tile template; if present it is used verbatim */
+  layer?: string
+  max_cloud_cover_param?: string
+  /** GetMap query params (LAYERS, CRS, TIME, MAXCC, ...), everything except BBOX */
+  params?: Record<string, string | number>
+  /** Ready-made tile template with {bbox-epsg-3857}; used verbatim when present */
   tile_url_template?: string
   attribution?: string
   min_zoom?: number

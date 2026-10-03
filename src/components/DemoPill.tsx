@@ -55,7 +55,9 @@ export default function DemoPill() {
   useEffect(() => {
     if (mode !== 'demo') return
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'INPUT' && (e.target as HTMLInputElement).type !== 'range') return
+      const el = e.target as HTMLElement | null
+      if (el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
+      if (el?.tagName === 'INPUT' && (el as HTMLInputElement).type !== 'range') return
       if (e.key === 'ArrowRight') stepDemo(1)
       else if (e.key === 'ArrowLeft') stepDemo(-1)
       else if (e.key === ' ') {

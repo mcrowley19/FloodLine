@@ -1,7 +1,7 @@
 # Render Blueprint (free): Dashboard → New → Blueprint → pick this repo.
 # Only the frontend runs on Render. The backend runs on a laptop via scripts/serve-public.sh,
-# which prints a Cloudflare tunnel URL; put it in the /api/* rewrite below (or edit the rule
-# in the dashboard under Redirects/Rewrites; it changes whenever the script restarts).
+# which exposes it at a fixed Tailscale Funnel URL (https://<machine>.<tailnet>.ts.net).
+# Both rules must be Rewrites (not Redirects) if edited in the dashboard.
 services:
   - type: web
     name: floodline
@@ -12,7 +12,7 @@ services:
       # Same-origin /api like the Vite dev proxy, so the browser never needs CORS.
       - type: rewrite
         source: /api/*
-        destination: https://REPLACE-WITH-TUNNEL.trycloudflare.com/*
+        destination: https://michaels-macbook-air-3.tail7a2ad6.ts.net/*
       - type: rewrite
         source: /*
         destination: /index.html

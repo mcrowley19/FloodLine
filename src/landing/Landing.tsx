@@ -1,37 +1,44 @@
 import { useEffect, type ReactNode } from 'react'
 import './landing.css'
 import Hero from './Hero'
-import DepthGauge from './DepthGauge'
 import Motes from './Motes'
-import HowItWorks from './HowItWorks'
 import ChandraReplay from './ChandraReplay'
-import { HATCH, ImagePlaceholder, Logo, SatelliteIcon, STATUS, StatusChip, type Status } from './ui'
+import { Logo, SatelliteIcon, StatusChip, type Status } from './ui'
 import { APP_URL, GITHUB_URL } from './links'
 import seabed from './assets/seabed.jpg'
+import nightFlood from './assets/night-flood.jpg'
+import michael from './assets/michael-crowley.jpg'
+import sandbags from './assets/problem-sandbags.jpg'
+import shotMap from './assets/dash-map.jpg'
+import shotStation from './assets/dash-station.jpg'
+import shotLead from './assets/dash-lead.jpg'
+import shotAsk from './assets/dash-ask.jpg'
 
 /**
- * Marketing landing page: a descent into water. A pinned town floods as you scroll,
- * then the page is one body of water getting darker down to the seabed footer.
+ * Landing page: a pinned town floods as you scroll, then the page explains how
+ * Floodline works, section by section, down to the seabed footer. Every figure
+ * here comes from BACKEND.md or the running system (screenshots taken 3 Oct 2026).
  */
 export default function Landing() {
   useEffect(() => {
-    document.title = 'Floodline · Know when the water is coming'
+    document.title = 'Floodline · Flood lead times for Irish rivers'
   }, [])
 
   return (
     <div className="fl">
-      <DepthGauge />
       <Hero />
       <Problem />
-      <Product />
+      <Dashboard />
       {/* lower water: drifting specks from here to the seabed */}
       <div style={{ position: 'relative' }}>
         <Motes />
-        <HowItWorks />
-        <Data />
+        <Pipeline />
+        <Model />
+        <Decision />
+        <Hazards />
         <ChandraReplay />
-        <Satellite />
-        <Team />
+        <Limits />
+        <Maker />
         <Cta />
         <Footer />
       </div>
@@ -43,94 +50,47 @@ function Problem() {
   return (
     <section id="problem" className="sec">
       <div className="wrap">
-        <h2 className="hd sub-h">Google forecasts the river. Nobody turns that into a task list.</h2>
+        <h2 className="hd sub-h">The decision it supports: when to fill sandbags</h2>
         <div className="split" style={{ marginTop: 56 }}>
-          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.65, color: 'rgba(225,240,250,.72)' }}>
-            In January 2026, Storm Chandra flooded Dublin, Wexford and Kilkenny, with more than 600 flooding reports. Ireland's local flood warnings are officially five to ten years away. Until then, each council decides on its own when to start filling sandbags. Fill too early and the bags rot. Fill too late and they arrive after the water.
-          </p>
-          <ImagePlaceholder
-            ratio="16 / 9"
-            file="problem-sandbags.jpg"
-            prompt="Council crew in hi-vis filling sandbags beside a swollen brown river under a heavy grey sky, Irish town and stone bridge behind, light rain, documentary photo, muted colours."
-          />
+          <div>
+            <p style={{ margin: 0, fontSize: 17, lineHeight: 1.65, color: 'rgba(225,240,250,.72)' }}>
+              Irish councils decide locally when to fill and place sandbags. Fill too early and crews and stock are tied up for a flood that may not come. Fill too late and the defence isn't in place when the river rises.
+            </p>
+            <p style={{ margin: '16px 0 0', fontSize: 17, lineHeight: 1.65, color: 'rgba(225,240,250,.72)' }}>
+              Floodline puts a number on that decision. For every OPW river and lake gauge it estimates the probability that the level reaches the gauge's own 95th percentile within 6, 24, 48 and 120 hours. A cost rule then turns that into one status and the latest time to start filling.
+            </p>
+          </div>
+          <img src={sandbags} alt="Council crew in hi-vis filling sandbags beside a swollen river, with a stone bridge and town behind" loading="lazy" style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: 18, border: '1px solid rgba(255,255,255,.14)' }} />
         </div>
       </div>
     </section>
   )
 }
 
-const TASKS: [Status, string, string, string][] = [
-  ['FILL NOW', 'Graiguenamanagh', 'Fill and place sandbags', 'by 19:00'],
-  ['FILL NOW', 'Enniscorthy', 'Fill and place sandbags', 'by 21:00'],
-  ['PREPARE', 'Kilkenny', 'Clear culverts on the Nore', '< 48h'],
-  ['PREPARE', 'Clonmel', 'Stage pumps and crews', '< 48h'],
-  ['WATCH', 'Athlone', 'Check sandbag stock', '< 5 days'],
-]
-
-const BARS: [string, number, string][] = [
-  ['6h', 18, 'rgba(255,209,102,.85)'],
-  ['24h', 40, 'rgba(255,154,60,.9)'],
-  ['48h', 56, STATUS['FILL NOW'].bg],
-  ['5 days', 62, STATUS['FILL NOW'].bg],
-]
-
-function Product() {
+function Dashboard() {
   return (
-    <section id="product" className="sec">
+    <section id="dashboard" className="sec">
       <div className="wrap">
-        <h2 className="hd sub-h">Lead times for every river in Ireland, hours before it floods.</h2>
-        <div className="two" style={{ marginTop: 56 }}>
-          <div>
-            <h3 className="hd h3">If you plan the flood response</h3>
-            <p className="body" style={{ marginTop: 12 }}>
-              Floodline gives every gauged river a chance of flooding at 6 hours, 24 hours, 48 hours and 5 days. Each place gets one status, FILL NOW, PREPARE or WATCH, and a deadline, so you know where sandbags and crews go first.
-            </p>
-            <div className="glass" style={{ marginTop: 28, borderRadius: 22, padding: 26, aspectRatio: '4 / 3', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                <div style={{ minWidth: 0 }}>
-                  <div className="hd" style={{ fontSize: 30, fontWeight: 700, color: '#fff', overflowWrap: 'anywhere' }}>Graiguenamanagh</div>
-                  <div style={{ marginTop: 4, fontSize: 14, color: 'var(--muted)' }}>River Barrow, Co. Kilkenny</div>
-                </div>
-                <StatusChip status="FILL NOW" style={{ padding: '6px 10px', borderRadius: 8 }} />
-              </div>
-              <div>
-                <div style={{ fontSize: 14, color: 'var(--muted)' }}>Deadline</div>
-                <div className="hd" style={{ fontSize: 56, lineHeight: 1, fontWeight: 700, color: '#fff' }}>19:00</div>
-                <div className="mono" style={{ marginTop: 6, fontSize: 12, color: 'rgba(207,234,248,.65)' }}>Issued 26 Jan 09:00 · illustrative</div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8, alignItems: 'end' }}>
-                {BARS.map(([label, h, bg]) => (
-                  <div key={label}>
-                    <div style={{ height: h, borderRadius: 4, background: bg }} />
-                    <div style={{ marginTop: 6, fontSize: 12, color: 'var(--muted)' }}>{label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div>
-            <h3 className="hd h3">If you're the crew on the ground</h3>
-            <p className="body" style={{ marginTop: 12 }}>
-              The forecast arrives as a task list, not a chart. Each row is a town, a river and a time to have the job done by: fill sandbags, clear culverts, get ready to evacuate.
-            </p>
-            <div className="glass" style={{ marginTop: 28, borderRadius: 22, padding: 22, aspectRatio: '4 / 3', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
-                <span style={{ fontSize: 16, fontWeight: 600, color: '#fff' }}>Today's tasks</span>
-                <span className="mono" style={{ fontSize: 11, color: 'rgba(207,234,248,.65)' }}>26 Jan 09:00 · illustrative</span>
-              </div>
-              <ul style={{ listStyle: 'none', margin: '16px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {TASKS.map(([status, town, task, when]) => (
-                  <li key={town} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12, background: 'rgba(4,20,36,.32)', border: '1px solid rgba(255,255,255,.08)' }}>
-                    <StatusChip status={status} style={{ flex: 'none', width: 76, textAlign: 'center', padding: '4px 0', borderRadius: 6, fontSize: 10.5 }} />
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: '#F1F9FE' }}>{town}</div>
-                      <div style={{ fontSize: 12, color: 'var(--muted)' }}>{task}</div>
-                    </div>
-                    <span className="mono" style={{ fontSize: 11, color: '#BFE9FA', textAlign: 'right', whiteSpace: 'nowrap' }}>{when}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        <h2 className="hd sub-h">The dashboard</h2>
+        <p className="lede">A React and MapLibre front end over a FastAPI backend. Live data refreshes every 2 minutes. These are screenshots of the running system on 3 October 2026.</p>
+        <figure className="shot" style={{ marginTop: 48 }}>
+          <img src={shotMap} alt="Floodline map of Ireland with river gauges coloured by status and a sidebar listing the highest-risk gauges" loading="lazy" />
+          <figcaption><b>Map.</b> 460 live gauges coloured by status and sized by risk, which is P(crossing within 48 h) × local flood exposure. The sidebar counts each status and ranks the gauges.</figcaption>
+        </figure>
+        <div className="shots">
+          <figure className="shot">
+            <img src={shotStation} alt="Station panel for Dinin Bridge showing level against P95, a 7-day rainfall forecast, the fill-by deadline and SHAP factors" loading="lazy" />
+            <figcaption><b>Station panel.</b> The last 72 h of level against P95, the 7-day ensemble rainfall (median and p10–p90 band), the decision (fill-by time, bags, lead time, p*) and the top five SHAP contributions to the 24 h prediction.</figcaption>
+          </figure>
+          <div className="shots-col">
+            <figure className="shot">
+              <img src={shotLead} alt="Lead times table with supplies to source and task deadlines per gauge" loading="lazy" />
+              <figcaption><b>Lead times.</b> Hours to each gauge's fill deadline, the task schedule worked back from the predicted crossing, and supplies to source now, pooled across gauges.</figcaption>
+            </figure>
+            <figure className="shot">
+              <img src={shotAsk} alt="Ask Floodline answering which Kilkenny gauges are most at risk" loading="lazy" />
+              <figcaption><b>Ask.</b> Qwen3 8B, an open-weights model running locally through Ollama, answers from five read-only tools over the server's state. Here it called <span className="mono">river_risk</span>.</figcaption>
+            </figure>
           </div>
         </div>
       </div>
@@ -138,30 +98,48 @@ function Product() {
   )
 }
 
-const icon = (paths: ReactNode) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths}</svg>
-)
-
-const SOURCES: [ReactNode, string, string][] = [
-  [icon(<><path d="M4 18a8 8 0 1 1 16 0" /><path d="M12 18l4-6" /><path d="M2 21h20" /></>), 'OPW river gauges', '450 gauges reporting water level every 15 minutes. Licensed CC BY 4.0.'],
-  [icon(<><path d="M7 15a4.5 4.5 0 1 1 1.2-8.8A6 6 0 0 1 19.5 9 3.5 3.5 0 0 1 18 15H7Z" /><path d="M8 18v3M12 18v3M16 18v3" /></>), 'ECMWF IFS ensemble', 'The physics-based ensemble rainfall forecast, used out to five days.'],
-  [icon(<><rect x="5" y="5" width="14" height="14" rx="2" /><path d="M9 9h6v6H9z" /><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" /></>), 'ECMWF AIFS ensemble', "ECMWF's machine-learning forecast, run as an ensemble alongside IFS."],
-  [icon(<path d="M4 7h16M4 12h16M4 17h10" />), 'Open-Meteo', 'Serves both ensembles through one open API.'],
-  [<SatelliteIcon key="s1" />, 'Copernicus Sentinel-1', 'A radar satellite that sees through cloud. It shows where it actually flooded.'],
-  [icon(<><path d="M3 20h18" /><path d="M5 20V12M10 20V8M15 20v-5M20 20V5" /></>), 'The model', 'One model for all of Ireland, built in the 3-hour hack, giving P(flood) at four horizons.'],
+const STAGES: [string, string, ReactNode][] = [
+  ['ingest', '8 min 07 s', 'Station list and 3 years of 15-minute levels for 461 OPW gauges (hourly means, shifted to the live feed’s datum); 3 years of hourly rain for 51 half-degree cells from Open-Meteo; CFRAM flood extents for exposure.'],
+  ['features', '10 s', '10.6 million station-hours of features.'],
+  ['train', '2 min 41 s', 'Four LightGBM models, one per horizon. Peak memory 3.7 GB.'],
+  ['satellite-build', '2 s', 'Copernicus EMSR860 polygons and the latest GFM Sentinel-1 flood extent.'],
+  ['hazards-build', '≈ 1.5 min', 'Soils, flood extents and groundwater maps rasterised and summarised over 818 land cells of 10 km.'],
+  ['demo-build', '≈ 3.5 min', 'The 33 Storm Chandra snapshots, including archived high-resolution rain forecasts.'],
 ]
 
-function Data() {
+const SOURCES: { icon: ReactNode; title: string; text: string }[] = [
+  { icon: <path d="M4 18a8 8 0 1 1 16 0M12 18l4-6M2 21h20" />, title: 'OPW waterlevel.ie', text: 'Live level every 15 minutes, plus the Hydro-Data archive for training. CC BY 4.0.' },
+  { icon: <path d="M7 15a4.5 4.5 0 1 1 1.2-8.8A6 6 0 0 1 19.5 9 3.5 3.5 0 0 1 18 15H7ZM8 18v3M12 18v3M16 18v3" />, title: 'ECMWF IFS + AIFS ensembles', text: 'About 102 pooled members over 15 days, via Open-Meteo. Gives per-gauge p10/p50/p90 rain totals, refreshed at most every 6 hours.' },
+  { icon: <path d="M4 7h16M4 12h16M4 17h10" />, title: 'Open-Meteo archive', text: 'Hourly observed rain for the same 3 years, per grid cell, plus the last 31 days to cover the archive’s lag.' },
+  { icon: <path d="M3 20h18M5 20V12M10 20V8M15 20v-5M20 20V5" />, title: 'OPW CFRAM extents', text: 'Exposure is the km² of 10-year flood extent within 5 km of each gauge.' },
+  { icon: <SatelliteIcon />, title: 'Copernicus EMS and GFM', text: 'Sentinel-1 radar flood maps: the EMSR860 activation for Storm Chandra, and GFM’s latest observed flooding over Ireland.' },
+  { icon: <path d="M2 12h4l3-8 4 16 3-8h6" />, title: 'EPA, GSI and Marine Institute', text: 'Soil drainage, groundwater flood maps and tide plus surge forecasts for the three non-river screens.' },
+]
+
+function Pipeline() {
   return (
-    <section id="data" className="sec">
+    <section id="pipeline" className="sec">
       <div className="wrap">
-        <h2 className="hd sub-h">Open data, one model, and a deadline on every warning.</h2>
-        <p className="lede">Nothing in the pipeline is proprietary. Every source below is open, and the code is in the repo.</p>
-        <ul className="three" style={{ listStyle: 'none', margin: '56px 0 0', padding: 0 }}>
-          {SOURCES.map(([ic, title, text]) => (
+        <h2 className="hd sub-h">Data pipeline</h2>
+        <p className="lede">
+          Python 3.11, httpx, polars and LightGBM. There is no database: each stage writes Parquet or GeoJSON and is skipped when its output already exists. A full build of all stages took about 17 minutes on a MacBook Air.
+        </p>
+        <ol className="stages" style={{ marginTop: 40 }}>
+          {STAGES.map(([name, t, text]) => (
+            <li key={name}>
+              <code>{name}</code>
+              <span className="t">{t}</span>
+              <span>{text}</span>
+            </li>
+          ))}
+        </ol>
+        <ul className="three" style={{ listStyle: 'none', margin: '64px 0 0', padding: 0 }}>
+          {SOURCES.map(({ icon, title, text }) => (
             <li key={title}>
-              <div style={{ width: 52, height: 52, borderRadius: 16, display: 'grid', placeItems: 'center', background: 'rgba(79,195,247,.12)', border: '1px solid rgba(127,227,255,.3)', color: '#7FE3FF' }}>{ic}</div>
-              <h3 className="hd" style={{ margin: '20px 0 0', fontSize: 24, fontWeight: 650, color: '#fff' }}>{title}</h3>
+              <div style={{ width: 48, height: 48, borderRadius: 14, display: 'grid', placeItems: 'center', background: 'rgba(79,195,247,.12)', border: '1px solid rgba(127,227,255,.3)', color: '#7FE3FF' }}>
+                {title.startsWith('Copernicus') ? icon : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{icon}</svg>}
+              </div>
+              <h3 className="hd" style={{ margin: '18px 0 0', fontSize: 22, fontWeight: 650, color: '#fff' }}>{title}</h3>
               <p className="body">{text}</p>
             </li>
           ))}
@@ -171,70 +149,50 @@ function Data() {
   )
 }
 
-const BEFORE: { date: string; status: Status; opacity?: number; note?: string }[] = [
-  { date: '24 Jan', status: 'WATCH', opacity: 0.55 },
-  { date: '25 Jan', status: 'PREPARE', opacity: 0.7 },
-  { date: '26 Jan 09:00', status: 'FILL NOW', note: 'by 19:00' },
+const METRICS: [string, string, string, string, string, string][] = [
+  ['6 h', '0.48', '0.92', '0.89', '0.97', '0.17'],
+  ['24 h', '0.46', '0.84', '0.84', '0.93', '0.25'],
+  ['48 h', '0.45', '0.80', '0.83', '0.91', '0.31'],
+  ['120 h', '0.45', '0.75', '0.89', '0.90', '0.45'],
 ]
 
-function Satellite() {
+function Model() {
   return (
-    <section id="satellite" className="sec">
+    <section id="model" className="sec">
       <div className="wrap">
-        <h2 className="hd sub-h">The model warns. The satellite confirms.</h2>
-        <p className="lede">After the water comes, Copernicus radar sees through the cloud and maps where it flooded.</p>
-        <div className="two" style={{ marginTop: 56 }}>
+        <h2 className="hd sub-h">The model</h2>
+        <p className="lede">One pooled LightGBM classifier per horizon, trained on every gauge at once with the gauge id as a categorical feature.</p>
+        <div className="split" style={{ marginTop: 48, alignItems: 'start' }}>
+          <ul className="kv">
+            <li>
+              <h3>Label</h3>
+              <p>For horizon H ∈ {'{6, 24, 48, 120}'} hours: does the maximum level in the next H hours reach the gauge’s own P95? Gauges with fewer than 500 valid hours are dropped.</p>
+            </li>
+            <li>
+              <h3>Features, per station-hour</h3>
+              <p>Level now; lags of 1, 3, 6, 12 and 24 h; 3 h and 6 h rise rates; percentile of the gauge’s own record; distance to P95; rain over the past 1 h to 30 days and the next 6 h to 7 days; the gauge’s P50, P95, max and spread; exposure; location.</p>
+            </li>
+            <li>
+              <h3>Training and calibration</h3>
+              <p>Train to September 2025, validate October to December 2025, test January to February 2026. Negatives are subsampled and reweighted, so raw scores are Platt-calibrated on validation before the decision layer compares them with a cost threshold.</p>
+            </li>
+          </ul>
           <div>
-            <div className="glass" style={{ borderRadius: 24, aspectRatio: '4 / 3', padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 }}>
-              {BEFORE.map((r) => {
-                const hot = !!r.note
-                return (
-                  <div key={r.date} style={{ display: 'flex', alignItems: 'center', gap: 14, opacity: r.opacity ?? 1, ...(hot ? { padding: 14, margin: '0 -14px', borderRadius: 14, background: 'rgba(255,90,78,.1)', border: '1px solid rgba(255,90,78,.45)' } : {}) }}>
-                    <span className="mono" style={{ width: 110, flex: 'none', fontSize: 12, color: hot ? '#fff' : '#CFEAF8' }}>{r.date}</span>
-                    <StatusChip status={r.status} style={{ padding: '4px 8px', borderRadius: 6, fontSize: 11 }} />
-                    {r.note && <span style={{ fontSize: 14, color: '#fff' }}>{r.note}</span>}
-                  </div>
-                )
-              })}
+            <table className="tbl">
+              <caption className="sr-only">Test results, January to February 2026, 461 gauges</caption>
+              <thead>
+                <tr><th scope="col">Horizon</th><th scope="col">Cutoff</th><th scope="col">Precision</th><th scope="col">Recall</th><th scope="col">AUC-PR</th><th scope="col">Base rate</th></tr>
+              </thead>
+              <tbody>
+                {METRICS.map((r) => <tr key={r[0]}>{r.map((v, i) => (i === 0 ? <th key={i} scope="row" style={{ textAlign: 'left', fontWeight: 600, color: '#fff', fontSize: 14, padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,.08)' }}>{v}</th> : <td key={i}>{v}</td>))}</tr>)}
+              </tbody>
+            </table>
+            <p className="body" style={{ marginTop: 16, fontSize: 14 }}>
+              Test set: January to February 2026, 461 gauges. Over 1,605 real P95 crossings, the 24 h head alerted 13–24 h ahead for 1,115 and missed 100. The 48 h head alerted 25–48 h ahead for 1,312 and missed 43.
+            </p>
+            <div className="note">
+              <b>Read these numbers with care.</b> Training and testing use observed future rain as a perfect-forecast stand-in, so they are an upper bound on what real ensemble forecasts give. P95 is also a low bar in a wet winter: base rates of 17–45% mean many gauges sit near it for weeks.
             </div>
-            <h3 className="hd h3" style={{ marginTop: 24 }}>Before</h3>
-            <p className="body">On the morning of 26 January, Graiguenamanagh moves to FILL NOW with a 19:00 deadline, a day before landfall.</p>
-          </div>
-          <div>
-            <div className="glass" style={{ position: 'relative', borderRadius: 24, overflow: 'hidden', aspectRatio: '4 / 3', background: '#071A2F' }}>
-              <svg viewBox="0 0 640 480" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Illustrative town outline with radar-observed flood extent hatched along the river" style={{ display: 'block', width: '100%', height: '100%' }}>
-                <defs>
-                  <pattern id="fl-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-                    <line x1="0" y1="0" x2="0" y2="7" stroke="#7FE3FF" strokeWidth="1.6" opacity=".75" />
-                  </pattern>
-                </defs>
-                <rect width="640" height="480" fill="#071A2F" />
-                <path d="M-20 140 C 120 170, 200 250, 300 270 S 480 320, 660 400" fill="none" stroke="#123E66" strokeWidth="48" />
-                <line x1="268" y1="220" x2="320" y2="318" stroke="#2F5677" strokeWidth="12" />
-                <g fill="none" stroke="rgba(170,220,245,.32)" strokeWidth="4" strokeLinecap="round">
-                  <path d="M-10 86 C 120 116, 190 196, 290 220 S 470 275, 650 350" />
-                  <path d="M-10 200 C 110 230, 200 305, 300 324 S 470 370, 650 450" />
-                  <path d="M120 0 L170 148" /><path d="M250 10 L272 216" /><path d="M420 40 L432 262" /><path d="M322 324 L304 480" /><path d="M500 354 L522 480" />
-                </g>
-                <g fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="1.2">
-                  {[[40,30,56,40],[106,40,34,46],[180,50,56,34],[180,100,44,44],[290,70,50,58],[350,90,56,40],[290,140,110,34],[446,130,70,44],[530,190,70,50],[446,196,60,40],[60,260,60,50],[130,320,70,48],[60,340,50,70],[210,380,70,40],[340,380,60,56],[420,410,66,40]].map(([x, y, w, h]) => (
-                    <rect key={`${x}-${y}`} x={x} y={y} width={w} height={h} />
-                  ))}
-                </g>
-                <g fill="url(#fl-hatch)" stroke="#7FE3FF" strokeWidth="1.6" strokeLinejoin="round">
-                  <path d="M150 170 L230 196 L300 226 L420 256 L486 282 L470 304 L400 298 L300 282 L222 248 L160 206 Z" />
-                  <path d="M160 252 L250 290 L320 320 L430 348 L520 388 L492 418 L380 388 L300 354 L230 332 L150 288 Z" />
-                  <path d="M520 282 L600 320 L590 350 L528 324 Z" />
-                </g>
-              </svg>
-              <div style={{ position: 'absolute', left: 16, top: 16, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999, background: 'rgba(6,26,46,.72)', border: '1px solid rgba(127,227,255,.45)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', fontSize: 13, color: '#E6F8FF' }}>
-                <span aria-hidden="true" style={{ width: 14, height: 9, borderRadius: 2, background: HATCH, border: '1px solid #7FE3FF' }} />
-                Sentinel-1 observed · 14h ago
-              </div>
-              <div className="mono" style={{ position: 'absolute', right: 16, bottom: 14, fontSize: 11, color: 'rgba(207,234,248,.65)' }}>illustrative</div>
-            </div>
-            <h3 className="hd h3" style={{ marginTop: 24 }}>After</h3>
-            <p className="body">On 27 January, Sentinel-1 radar maps the flooded streets along the Barrow.</p>
           </div>
         </div>
       </div>
@@ -242,23 +200,118 @@ function Satellite() {
   )
 }
 
-/** TODO: names and roles from Michael. */
-const TEAM = [1, 2, 3, 4].map(() => ({ name: '[Name]', role: '[Course, college]' }))
+const RULES: [Status, string][] = [
+  ['FILL NOW', 'P(crossing within L) ≥ p*. Fill and place now; the deadline is the predicted crossing minus L.'],
+  ['PREPARE', 'P(crossing within L + 24 h) ≥ p*. Stage bags, pumps and crews, clear culverts.'],
+  ['WATCH', 'P(crossing within 120 h) ≥ p*. Check stock and watch the next run.'],
+]
 
-function Team() {
+function Decision() {
   return (
-    <section id="team" className="sec">
+    <section id="decision" className="sec">
       <div className="wrap">
-        <h2 className="hd sub-h">Meet the team</h2>
-        <ul className="four" style={{ listStyle: 'none', margin: '56px 0 0', padding: 0 }}>
-          {TEAM.map((p, i) => (
-            <li key={i} style={{ minWidth: 0 }}>
-              <ImagePlaceholder ratio="1 / 1" label="Headshot" prompt="Looking at the camera. Shown in black and white on the page." />
-              <h3 style={{ margin: '18px 0 0', fontSize: 18, fontWeight: 600, color: '#fff' }}>{p.name}</h3>
-              <p style={{ margin: '4px 0 0', fontSize: 15, color: 'rgba(207,234,248,.65)' }}>{p.role}</p>
+        <h2 className="hd sub-h">From probability to a deadline</h2>
+        <p className="lede">
+          Sandbagging is a newsvendor problem: the cost of filling bags that aren’t needed against the cost of being short. Floodline computes the break-even probability p* and the lead time L for each gauge, and compares them with the forecast.
+        </p>
+        <div className="split" style={{ marginTop: 48, alignItems: 'start' }}>
+          <div>
+            <pre className="formula mono">{`N  = defence length × bags per metre
+L  = N / (crews × fill rate) + travel + margin
+p* = c_fill·N / (c_fill·N + c_short)
+
+e.g. 100 m, 2 bags high → N = 1,500 bags
+     2 crews × 100 bags/h → L = 10.25 h
+     c_fill = 2, c_short = 50,000 → p* ≈ 0.057`}</pre>
+            <p className="body" style={{ marginTop: 16, fontSize: 14 }}>
+              P(crossing within t) is interpolated log-linearly between the four horizons after forcing it to increase with t. Every input is a default that a council can override per gauge through <span className="mono">POST /settings</span>.
+            </p>
+          </div>
+          <div>
+            <div style={{ display: 'grid', gap: 20 }}>
+              {RULES.map(([s, text]) => (
+                <div key={s} style={{ display: 'grid', gridTemplateColumns: '100px minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
+                  <StatusChip status={s} style={{ textAlign: 'center' }} />
+                  <p style={{ margin: 0, fontSize: 15, lineHeight: 1.6, color: 'var(--body)' }}>{text}</p>
+                </div>
+              ))}
+            </div>
+            <p className="body" style={{ marginTop: 28, fontSize: 14 }}>
+              Tasks are scheduled back from the predicted crossing: rest centre on standby 24 h before the predicted crossing, public warning 18 h before, sandbags filled by the deadline, culvert screens cleared 8 h before, collection points open 4 h before. Supplies (bags, sand, sheeting, tipper loads, crew-hours) follow USACE and NDSU sandbagging ratios.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+const HAZARDS: [string, string, string][] = [
+  ['Surface water', 'Per 10 km cell', 'Peak 1 h, 3 h and 24 h rain over the next ~60 h from three ~2 km models (UKV, KNMI and DMI HARMONIE), against 20 / 30 / 40 mm thresholds lowered for poorly drained or saturated ground. HIGH needs two models to agree.'],
+  ['Groundwater', '1,505 GSI zones', 'Rain over the past 30, 60 and 90 days plus the next 7, ranked against the zone’s own 3-year record. Mostly karst turloughs in the west and midlands.'],
+  ['Coastal', '40 surge points', 'Marine Institute tide plus surge over the next 48 h, against the 95th and 99th percentiles of predicted high water at the nearest tide station.'],
+]
+
+function Hazards() {
+  return (
+    <section id="hazards" className="sec">
+      <div className="wrap">
+        <h2 className="hd sub-h">Three other flood types</h2>
+        <p className="lede">
+          These are rule-based screens, not trained models: there is no open record of surface-water, groundwater or coastal flood events to learn from. Their thresholds and weights are judgement. All four types merge into one alert list at <span className="mono">/alerts</span>.
+        </p>
+        <ul className="three" style={{ listStyle: 'none', margin: '48px 0 0', padding: 0 }}>
+          {HAZARDS.map(([title, unit, text]) => (
+            <li key={title}>
+              <h3 className="hd" style={{ margin: 0, fontSize: 24, fontWeight: 650, color: '#fff' }}>{title}</h3>
+              <p className="mono" style={{ margin: '6px 0 0', fontSize: 12, color: '#7FE3FF' }}>{unit}</p>
+              <p className="body">{text}</p>
             </li>
           ))}
         </ul>
+      </div>
+    </section>
+  )
+}
+
+const LIMITS: [string, string][] = [
+  ['P95 is a proxy for flooding', 'It is not a flood threshold, and wet winters exceed it often. Councils’ own station thresholds should replace it where they exist.'],
+  ['Skill is optimistic', 'Training uses observed rain in place of forecasts, so live skill depends on the ensemble and will be lower than the test table.'],
+  ['Coarse rain grid', 'The free Open-Meteo tier gives 0.5° cells (about 50 km), which smooths convective storms over small catchments.'],
+  ['Satellites confirm, they don’t warn', 'Sentinel-1 revisits Ireland every 2–4 days and maps arrive 6–48 h after acquisition.'],
+]
+
+function Limits() {
+  return (
+    <section id="limits" className="sec">
+      <div className="wrap">
+        <h2 className="hd sub-h">Known limitations</h2>
+        <ul className="limits">
+          {LIMITS.map(([title, text]) => (
+            <li key={title}>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}
+
+function Maker() {
+  return (
+    <section id="maker" className="sec">
+      <div className="wrap">
+        <h2 className="hd sub-h">Built by one person</h2>
+        <div style={{ marginTop: 48, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '24px 32px' }}>
+          <img src={michael} alt="Michael Crowley" loading="lazy" style={{ display: 'block', width: 180, height: 180, objectFit: 'cover', objectPosition: '35% 25%', borderRadius: 18, filter: 'grayscale(1) contrast(1.05)', border: '1px solid rgba(255,255,255,.14)' }} />
+          <div>
+            <h3 style={{ margin: 0, fontSize: 22, fontWeight: 600, color: '#fff' }}>Michael Crowley</h3>
+            <p style={{ margin: '4px 0 0', fontSize: 15, color: 'rgba(207,234,248,.7)' }}>Computer Science, Trinity College Dublin</p>
+            <p className="body" style={{ marginTop: 14, maxWidth: 440 }}>Designed and built Floodline solo at Hack for Humanity Dublin, 2026: the data pipeline, the model, the backend and the dashboard.</p>
+          </div>
+        </div>
       </div>
     </section>
   )
@@ -269,16 +322,18 @@ function Cta() {
     <section id="cta" className="sec">
       <div className="wrap split">
         <div>
-          <h2 className="hd sub-h">Pick a river. See when it floods.</h2>
-          <div style={{ marginTop: 36, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            <a href={APP_URL} className="btn btn-solid">Open the map</a>
+          <h2 className="hd sub-h">Open the dashboard</h2>
+          <p className="lede" style={{ marginTop: 20 }}>The live map, lead times, data sources and the Storm Chandra replay. The code, including the backend, is on GitHub.</p>
+          <div style={{ marginTop: 32, display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            <a href={APP_URL} className="btn btn-solid">Open the dashboard</a>
             <a href={GITHUB_URL} className="btn btn-glass" target="_blank" rel="noreferrer">Source on GitHub</a>
           </div>
         </div>
-        <ImagePlaceholder
-          ratio="4 / 3"
-          file="night-flood.jpg"
-          prompt="A flooded Irish main street at night, sandbags stacked at the doorways, streetlights reflected in still dark water, nobody around, calm, cinematic, deep blue tones."
+        <img
+          src={nightFlood}
+          alt="Illustration of a flooded Irish main street at night, sandbags stacked at every doorway"
+          loading="lazy"
+          style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: 18, border: '1px solid rgba(255,255,255,.14)', boxShadow: '0 24px 60px rgba(2,14,28,.45)' }}
         />
       </div>
     </section>
@@ -295,10 +350,10 @@ function Footer() {
             <Logo size={22} text={18} ring="#7FE3FF" fill="rgba(79,195,247,.32)" />
           </a>
           <span>Built at Hack for Humanity Dublin, 2026.</span>
-          <span>Data: OPW (CC BY 4.0), Open-Meteo, Copernicus Sentinel-1.</span>
+          <span>Data: OPW (CC BY 4.0), Open-Meteo, ECMWF, Copernicus EMS and Sentinel-1, EPA, GSI, Marine Institute.</span>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20 }}>
-          <a href={APP_URL} style={{ color: 'rgba(220,238,248,.8)', textDecoration: 'none' }}>App</a>
+          <a href={APP_URL} style={{ color: 'rgba(220,238,248,.8)', textDecoration: 'none' }}>Dashboard</a>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer" style={{ color: 'rgba(220,238,248,.8)', textDecoration: 'none' }}>GitHub</a>
         </div>
       </div>

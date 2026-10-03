@@ -9,21 +9,8 @@ export const COPERNICUS_ATTRIBUTION = 'Contains modified Copernicus Sentinel dat
 
 function tileTemplate(wms: WmsInfo): string | null {
   if (wms.tile_url_template) return wms.tile_url_template
-  if (!wms.url) return null
-  const v = wms.version ?? '1.1.1'
-  const crsParam = v.startsWith('1.3') ? 'CRS' : 'SRS'
-  const q = new URLSearchParams({
-    SERVICE: 'WMS',
-    VERSION: v,
-    REQUEST: 'GetMap',
-    LAYERS: wms.layers ?? '',
-    STYLES: wms.styles ?? '',
-    FORMAT: wms.format ?? 'image/png',
-    TRANSPARENT: 'true',
-    WIDTH: '256',
-    HEIGHT: '256',
-    [crsParam]: 'EPSG:3857',
-  })
+  if (!wms.url || !wms.params) return null
+  const q = new URLSearchParams(Object.entries(wms.params).map(([k, v]) => [k, String(v)]))
   const sep = wms.url.includes('?') ? '&' : '?'
   return `${wms.url}${sep}${q.toString()}&BBOX={bbox-epsg-3857}`
 }

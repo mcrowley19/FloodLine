@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { useStore, selectDemoAt } from '../../store'
-import { useRisk, useErrorToast } from '../../api/queries'
+import { useRisk, useErrorToast, useWms } from '../../api/queries'
 import type { RiskPoint, Status } from '../../api/types'
 import { STATUSES } from '../../api/types'
 import { STATUS_COLOR, STATUS_LABEL } from '../../lib/status'
 import { fmtHours, fmtUtcLong, parseIso, hoursBetween } from '../../lib/time'
 import { useNow } from '../../hooks/useNow'
 import { getMap } from '../../map/mapRef'
+import { S2_MIN_ZOOM } from '../../map/sentinel2Layer'
 import { EmptyState, PBar, SectionTitle, Skeleton, StatusPill, Toggle } from '../ui'
 
 export default function MapPanel() {
@@ -17,6 +18,8 @@ export default function MapPanel() {
   const now = useNow()
   const risk = useRisk()
   useErrorToast(risk.error, 'risk')
+  const wms = useWms()
+  const imageryOff = wms.data && !wms.data.available ? (wms.data.reason ?? 'Imagery is unavailable') : null
 
   const stations = useMemo(() => risk.data?.stations ?? [], [risk.data])
   const counts = useMemo(() => {
@@ -65,10 +68,21 @@ export default function MapPanel() {
         <SectionTitle>Layers</SectionTitle>
         <div className="flex flex-wrap gap-1.5">
           <Toggle label="Observed flood" checked={layers.observed} onChange={() => toggleLayer('observed')} color="#7FE3FF" />
-          <Toggle label="Imagery" checked={layers.imagery} onChange={() => toggleLayer('imagery')} color="#A7F3D0" />
+          <Toggle
+            label="Imagery"
+            checked={layers.imagery && !imageryOff}
+            onChange={() => toggleLayer('imagery')}
+            color="#A7F3D0"
+            disabled={!!imageryOff}
+            title={imageryOff ? `Sentinel-2 imagery unavailable: ${imageryOff}` : undefined}
+          />
           <Toggle label="Rivers" checked={layers.rivers} onChange={() => toggleLayer('rivers')} color="#4FC3F7" />
         </div>
-        {layers.imagery && <div className="mt-1.5 text-[10px] text-white/45">Sentinel-2 imagery shows from zoom 11.</div>}
+        {imageryOff ? (
+          <div className="mt-1.5 text-[10px] text-white/45">Sentinel-2 imagery unavailable: {imageryOff}</div>
+        ) : (
+          layers.imagery && <div className="mt-1.5 text-[10px] text-white/45">Sentinel-2 imagery shows from zoom {S2_MIN_ZOOM}.</div>
+        )}
       </section>
 
       <section>

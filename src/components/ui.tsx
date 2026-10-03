@@ -40,14 +40,30 @@ export function PBar({ value, status, className = '' }: { value: number; status:
   )
 }
 
-export function Toggle({ label, checked, onChange, color }: { label: string; checked: boolean; onChange: () => void; color?: string }) {
+export function Toggle({
+  label,
+  checked,
+  onChange,
+  color,
+  disabled,
+  title,
+}: {
+  label: string
+  checked: boolean
+  onChange: () => void
+  color?: string
+  disabled?: boolean
+  title?: string
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
       onClick={onChange}
-      className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-white/80 transition hover:bg-white/10"
+      disabled={disabled}
+      title={title}
+      className="flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white/5"
     >
       <span className={`relative h-3.5 w-6 rounded-full transition ${checked ? '' : 'bg-white/15'}`} style={checked ? { background: color ?? '#4FC3F7' } : undefined}>
         <span className={`absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-all ${checked ? 'left-3' : 'left-0.5'}`} />

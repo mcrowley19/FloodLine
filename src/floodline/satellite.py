@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import zipfile
+from urllib.parse import urlencode
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -296,24 +297,28 @@ def wms_config() -> dict:
     layer = os.environ.get("CDSE_WMS_LAYER", "TRUE_COLOR")
     maxcc = int(os.environ.get("CDSE_MAX_CLOUD", "30"))
     end = utcnow().date()
+    url = URLS["cdse_wms"].format(instance=instance)
+    params = {
+        "SERVICE": "WMS",
+        "REQUEST": "GetMap",
+        "VERSION": "1.3.0",
+        "LAYERS": layer,
+        "FORMAT": "image/png",
+        "TRANSPARENT": "true",
+        "CRS": "EPSG:3857",
+        "MAXCC": maxcc,
+        "TIME": f"{end - timedelta(days=30)}/{end}",
+        "WIDTH": 256,
+        "HEIGHT": 256,
+    }
     return {
         "available": True,
-        "url": URLS["cdse_wms"].format(instance=instance),
+        "url": url,
         "layer": layer,
         "max_cloud_cover_param": "MAXCC",
-        "params": {
-            "SERVICE": "WMS",
-            "REQUEST": "GetMap",
-            "VERSION": "1.3.0",
-            "LAYERS": layer,
-            "FORMAT": "image/png",
-            "TRANSPARENT": "true",
-            "CRS": "EPSG:3857",
-            "MAXCC": maxcc,
-            "TIME": f"{end - timedelta(days=30)}/{end}",
-            "WIDTH": 256,
-            "HEIGHT": 256,
-        },
+        "params": params,
+        # MapLibre substitutes {bbox-epsg-3857} per tile; appended raw so the braces aren't encoded.
+        "tile_url_template": f"{url}?{urlencode(params)}&BBOX={{bbox-epsg-3857}}",
         "attribution": f"Contains modified Copernicus Sentinel data {end.year}",
     }
 

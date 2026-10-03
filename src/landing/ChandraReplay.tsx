@@ -1,26 +1,89 @@
 import { useEffect, useRef, useState } from 'react'
-import { HATCH, STATUS, SatelliteIcon, type Status } from './ui'
+import { CHANDRA, FIRST_EMSR, LANDFALL } from './chandraData'
+import { STATUS, SatelliteIcon } from './ui'
+import landfallShot from './assets/dash-landfall.jpg'
 
-const DAYS = [22, 23, 24, 25, 26, 27, 28, 29, 30]
-const LAST = DAYS[DAYS.length - 1]
-const STEP_MS = 1300
-/** Centre of a day's column on the 9-column ribbon, as a % of its width. */
-const at = (day: number) => `${(((day - DAYS[0]) + 0.5) / DAYS.length) * 100}%`
-const LANDFALL = 27
-const PASSES = [28, 29]
+const SERIES = [
+  { key: 'FILL NOW', color: STATUS['FILL NOW'].bg },
+  { key: 'PREPARE', color: STATUS.PREPARE.bg },
+  { key: 'WATCH', color: STATUS.WATCH.bg },
+  { key: 'CLEAR', color: 'rgba(207,234,248,.24)' },
+] as const
 
-const ribbonFor = (d: number) => (d === 24 ? STATUS.WATCH.bg : d === 25 ? STATUS.PREPARE.bg : d === 26 ? STATUS['FILL NOW'].bg : d >= 27 ? HATCH : 'rgba(255,255,255,.08)')
+const STEP_MS = 350
+const N = CHANDRA.length
+const LANDFALL_I = CHANDRA.findIndex(([t]) => t === LANDFALL)
+const EMSR_I = CHANDRA.findIndex(([t]) => t === FIRST_EMSR)
 
-const ROWS: { day: number; date: string; status: Status | 'OBSERVED'; text: string }[] = [
-  { day: 24, date: '24 Jan', status: 'WATCH', text: 'Check sandbag stock and crews.' },
-  { day: 25, date: '25 Jan', status: 'PREPARE', text: 'Stage sandbags and pumps. Clear culverts.' },
-  { day: 26, date: '26 Jan 09:00', status: 'FILL NOW', text: 'Fill and place sandbags by 19:00.' },
-  { day: 27, date: '27 Jan', status: 'OBSERVED', text: 'Flooding observed by Sentinel-1.' },
-]
+// chart geometry, in viewBox units
+const W = 640
+const H = 280
+const PAD = { l: 34, r: 6, t: 26, b: 26 }
+const Y_MAX = 450
+const colW = (W - PAD.l - PAD.r) / N
+const y = (v: number) => PAD.t + (H - PAD.t - PAD.b) * (1 - v / Y_MAX)
+const x = (i: number) => PAD.l + i * colW
 
-/** Step through 22–30 Jan; Graiguenamanagh's rows unlock as the selected day passes them. */
+const fmt = (t: string) => {
+  const d = new Date(`${t}:00:00Z`)
+  return `${d.getUTCDate()} Jan ${String(d.getUTCHours()).padStart(2, '0')}:00`
+}
+
+/** Status counts across all gauges for every 6-hourly snapshot of the replay. */
+function StatusChart({ sel, onSelect }: { sel: number; onSelect: (i: number) => void }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', overflow: 'visible' }} aria-hidden="true">
+        {[0, 100, 200, 300, 400].map((v) => (
+          <g key={v}>
+            <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke="rgba(207,234,248,.1)" />
+            <text x={PAD.l - 8} y={y(v) + 4} textAnchor="end" fontSize="11" fill="rgba(207,234,248,.6)" fontFamily="IBM Plex Mono, monospace">{v}</text>
+          </g>
+        ))}
+        {CHANDRA.map(([, ...counts], i) => {
+          let base = 0
+          return (
+            <g key={i} opacity={i === sel ? 1 : 0.72} style={{ transition: 'opacity .3s' }}>
+              {counts.map((c, s) => {
+                const top = y(base + c)
+                const h = y(base) - top
+                base += c
+                // 2px surface gap between stacked segments
+                return h > 2 ? <rect key={s} x={x(i) + 1.5} width={colW - 3} y={top} height={h - 2} rx={1.5} fill={SERIES[s].color} /> : null
+              })}
+            </g>
+          )
+        })}
+        {/* landfall and first satellite pass */}
+        <line x1={x(LANDFALL_I) + colW / 2} x2={x(LANDFALL_I) + colW / 2} y1={PAD.t - 12} y2={H - PAD.b} stroke="#fff" strokeOpacity=".7" strokeDasharray="3 3" />
+        <text x={x(LANDFALL_I) + colW / 2} y={PAD.t - 16} textAnchor="middle" fontSize="11" fill="#fff">Landfall</text>
+        <line x1={x(EMSR_I) + colW / 2} x2={x(EMSR_I) + colW / 2} y1={PAD.t - 12} y2={H - PAD.b} stroke="#7FE3FF" strokeOpacity=".8" strokeDasharray="3 3" />
+        <text x={x(EMSR_I) + colW / 2} y={PAD.t - 16} textAnchor="middle" fontSize="11" fill="#7FE3FF">Sentinel-1</text>
+        {Array.from({ length: 9 }, (_, d) => (
+          <text key={d} x={x(d * 4) + colW / 2} y={H - 8} textAnchor="middle" fontSize="11" fill="rgba(207,234,248,.65)" fontFamily="IBM Plex Mono, monospace">{22 + d}</text>
+        ))}
+      </svg>
+      {/* one hit target per snapshot, the full column height */}
+      <div role="group" aria-label="Replay snapshot" style={{ position: 'absolute', inset: 0, left: `${(PAD.l / W) * 100}%`, right: `${(PAD.r / W) * 100}%`, display: 'grid', gridTemplateColumns: `repeat(${N}, minmax(0, 1fr))` }}>
+        {CHANDRA.map(([t, f, p, w, c], i) => (
+          <button
+            key={t}
+            type="button"
+            aria-pressed={i === sel}
+            aria-label={`${fmt(t)} UTC: ${f} fill now, ${p} prepare, ${w} watch, ${c} clear`}
+            onClick={() => onSelect(i)}
+            onMouseEnter={() => onSelect(i)}
+            onFocus={() => onSelect(i)}
+            style={{ border: 0, padding: 0, background: 'transparent', cursor: 'pointer' }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function ChandraReplay() {
-  const [day, setDay] = useState(26)
+  const [sel, setSel] = useState(LANDFALL_I)
   const [playing, setPlaying] = useState(false)
   const timer = useRef<number | undefined>(undefined)
 
@@ -31,106 +94,92 @@ export default function ChandraReplay() {
   }
   const play = () => {
     window.clearInterval(timer.current)
-    setDay(DAYS[0])
+    let i = 0
+    setSel(0)
     setPlaying(true)
-    timer.current = window.setInterval(() => setDay((d) => Math.min(d + 1, LAST)), STEP_MS)
+    timer.current = window.setInterval(() => {
+      i += 1
+      setSel(i)
+      if (i >= N - 1) stop()
+    }, STEP_MS)
   }
-  // the replay ends one step after reaching the last day
-  useEffect(() => {
-    if (!playing || day < LAST) return
-    const t = window.setTimeout(stop, STEP_MS)
-    return () => window.clearTimeout(t)
-  }, [playing, day])
   useEffect(() => () => window.clearInterval(timer.current), [])
 
-  const current = ROWS.reduce((c, r, i) => (r.day <= day ? i : c), -1)
+  const [t, ...counts] = CHANDRA[sel]
+  const total = counts.reduce((a, b) => a + b, 0)
+  const tag = sel === LANDFALL_I ? ' · landfall' : sel >= EMSR_I ? ' · after first Sentinel-1 pass' : ''
 
   return (
     <section id="chandra" className="sec">
       <div className="wrap">
-        <h2 className="hd sub-h">Storm Chandra, replayed.</h2>
-        <p className="lede">We replay the five days before the storm using only the data that existed each day.</p>
+        <h2 className="hd sub-h">Storm Chandra, replayed from the archive</h2>
+        <p className="lede">
+          The replay runs the same pipeline at 33 snapshots, every 6 hours from 22 to 30 January 2026. Each snapshot sees only the levels and rain recorded up to that time. Archived rain after the snapshot stands in for the ensemble median, so the forecast part is a proxy.
+        </p>
 
         <div className="glass replay" style={{ marginTop: 48 }}>
           <div>
-            <div style={{ position: 'relative', height: 50 }}>
-              <div style={{ position: 'absolute', left: at(LANDFALL), bottom: 0, transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <span style={{ fontSize: 12, color: '#fff', whiteSpace: 'nowrap' }}>Landfall</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M21 4H8a4 4 0 0 0 0 8h7a3 3 0 0 1 0 6H4" />
-                </svg>
-              </div>
-              {PASSES.map((d) => (
-                <div key={d} style={{ position: 'absolute', left: at(d), bottom: 2, transform: 'translateX(-50%)' }}>
-                  <SatelliteIcon size={18} stroke="#7FE3FF" label={`Sentinel-1 pass, ${d} January`} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+              <span className="mono" style={{ fontSize: 13, color: '#fff' }}>{fmt(t)} UTC<span style={{ color: '#7FE3FF' }}>{tag}</span></span>
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{total} gauges with data</span>
+            </div>
+            <div aria-live="polite" className="readout">
+              {SERIES.map((s, i) => (
+                <div key={s.key} style={{ padding: '10px 12px', borderRadius: 12, background: 'rgba(4,20,36,.35)', border: '1px solid rgba(255,255,255,.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--muted)' }}>
+                    <span aria-hidden="true" style={{ flex: 'none', width: 9, height: 9, borderRadius: 2, background: s.color }} />
+                    <span className="mono">{s.key}</span>
+                  </div>
+                  <div className="num" style={{ marginTop: 4, fontSize: 22, fontWeight: 600, color: '#fff' }}>{counts[i]}</div>
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: `repeat(${DAYS.length}, minmax(0, 1fr))`, gap: 3 }} aria-hidden="true">
-              {DAYS.map((d) => (
-                <div key={d} style={{ height: 12, borderRadius: 3, background: ribbonFor(d), opacity: d <= day ? 1 : 0.25, transition: 'opacity .8s' }} />
-              ))}
+            <div style={{ marginTop: 22 }}>
+              <StatusChart
+                sel={sel}
+                onSelect={(i) => {
+                  if (timer.current) stop()
+                  setSel(i)
+                }}
+              />
             </div>
-            <div role="group" aria-label="Replay day" style={{ position: 'relative', marginTop: 8, display: 'grid', gridTemplateColumns: `repeat(${DAYS.length}, minmax(0, 1fr))`, gap: 3 }}>
-              <div aria-hidden="true" style={{ position: 'absolute', left: at(LANDFALL), top: -72, height: 72, width: 1, background: 'linear-gradient(180deg, rgba(255,255,255,0), rgba(255,255,255,.55) 40%, rgba(255,255,255,.25))', pointerEvents: 'none' }} />
-              {DAYS.map((d) => {
-                const sel = d === day
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    className="day-btn mono"
-                    aria-pressed={sel}
-                    aria-label={`${d} January 2026`}
-                    onClick={() => {
-                      stop()
-                      setDay(d)
-                    }}
-                    style={{ minHeight: 48, padding: 0, borderRadius: 10, border: `1px solid ${sel ? '#7FE3FF' : 'rgba(255,255,255,.12)'}`, background: sel ? 'rgba(79,195,247,.22)' : 'rgba(255,255,255,.03)', color: sel ? '#fff' : 'rgba(207,234,248,.75)', fontSize: 13, cursor: 'pointer', transition: 'background .6s, border-color .6s' }}
-                  >
-                    {d}
-                  </button>
-                )
-              })}
+            <div style={{ marginTop: 6, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(207,234,248,.6)' }}>
+              <span className="mono">January 2026, 6-hourly</span>
+              <span>Hover or tap a column</span>
             </div>
-            <div className="mono" style={{ marginTop: 8, fontSize: 11, color: 'rgba(207,234,248,.6)' }}>January 2026</div>
-
-            <div style={{ marginTop: 28, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
+            <div style={{ marginTop: 22 }}>
               <button type="button" onClick={play} className="btn btn-glass" style={{ minHeight: 46, padding: '0 20px', font: "500 15px 'Inter', system-ui, sans-serif" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8Z" /></svg>
                 {playing ? 'Replaying…' : 'Replay 22–30 Jan'}
               </button>
-              <span style={{ fontSize: 13, color: 'rgba(207,234,248,.75)' }} aria-live="polite">
-                Data up to <span className="mono" style={{ color: '#7FE3FF' }}>{day === 26 ? '26 Jan 09:00' : `${day} Jan`}</span>
-              </span>
             </div>
+            <table className="sr-only">
+              <caption>Gauges per status at each replay snapshot</caption>
+              <thead><tr><th>Time (UTC)</th>{SERIES.map((s) => <th key={s.key}>{s.key}</th>)}</tr></thead>
+              <tbody>{CHANDRA.map(([tt, ...cs]) => <tr key={tt}><td>{fmt(tt)}</td>{cs.map((c, i) => <td key={i}>{c}</td>)}</tr>)}</tbody>
+            </table>
           </div>
 
-          <div className="replay-town">
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-              <h3 className="hd" style={{ margin: 0, fontSize: 30, fontWeight: 700, color: '#fff' }}>Graiguenamanagh</h3>
-              <span style={{ fontSize: 13, color: 'rgba(207,234,248,.7)' }}>River Barrow</span>
-            </div>
-            <ol style={{ listStyle: 'none', margin: '24px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {ROWS.map((r, i) => {
-                const reached = r.day <= day
-                const isCur = i === current
-                const obs = r.status === 'OBSERVED'
-                return (
-                  <li key={r.date} className="replay-row" style={{ borderRadius: 14, border: `1px solid ${isCur ? 'rgba(127,227,255,.6)' : 'rgba(255,255,255,.08)'}`, background: isCur ? 'rgba(79,195,247,.12)' : 'rgba(255,255,255,.03)', opacity: reached ? 1 : 0.38, transition: 'opacity .9s, background .9s, border-color .9s' }}>
-                    <div>
-                      <div className="mono" style={{ fontSize: 12, color: '#CFEAF8' }}>{r.date}</div>
-                      <span className="mono" style={{ display: 'inline-block', marginTop: 6, padding: '4px 8px', borderRadius: 6, fontSize: 10.5, fontWeight: 500, background: obs ? HATCH : STATUS[r.status as Status].bg, color: obs ? '#04192C' : STATUS[r.status as Status].fg, border: `1px solid ${obs ? '#7FE3FF' : 'transparent'}` }}>
-                        {obs ? 'Sentinel-1' : r.status}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 15, lineHeight: 1.45, color: '#E8F5FC' }}>{reached ? r.text : 'Not known yet.'}</div>
-                  </li>
-                )
-              })}
-            </ol>
-          </div>
+          <ul className="kv">
+            <li>
+              <h3>What it shows</h3>
+              <p>Gauges at FILL NOW rise from 168 on 22 January to 336 at landfall (27 January 00:00) and peak at 344 on the evening of the 29th.</p>
+            </li>
+            <li>
+              <h3>Why so many, so early</h3>
+              <p>The status compares each gauge against its own 95th percentile. In a wet January many rivers were already above it days before the storm, so they read FILL NOW from the first snapshot. Graiguenamanagh on the Barrow is one of them.</p>
+            </li>
+            <li>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: 8 }}><SatelliteIcon size={18} stroke="#7FE3FF" />Satellite confirmation</h3>
+              <p>Copernicus EMS activation EMSR860 delivered Sentinel-1 flood maps for Co. Kilkenny, the first acquired on 29 January at 18:13 UTC. The Wexford products were never delivered.</p>
+            </li>
+          </ul>
         </div>
+
+        <figure className="shot" style={{ marginTop: 40 }}>
+          <img src={landfallShot} alt="Floodline dashboard in replay mode at landfall, 27 January 2026 00:00 UTC, with most river gauges marked fill now" loading="lazy" />
+          <figcaption><b>Replay mode at landfall.</b> The dashboard's own replay: 336 of 409 gauges at FILL NOW. The scrubber steps through the same 33 snapshots as the chart above.</figcaption>
+        </figure>
       </div>
     </section>
   )
