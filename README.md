@@ -18,9 +18,15 @@ TanStack Query · Zustand · Recharts · Turf.
 
 ```bash
 pnpm install
-cp .env.example .env          # set VITE_API_URL (default http://localhost:8000)
+cp .env.example .env          # API_PROXY_TARGET (default http://localhost:8000)
 pnpm dev                      # http://localhost:5173
 ```
+
+The dev and preview servers proxy `/api/*` to `API_PROXY_TARGET`, so the browser
+only talks to its own origin and the backend needs no CORS setup. If the
+backend is not running you get a toast ("Backend not reachable…") rather than
+a browser CORS error. To call a backend directly instead, set `VITE_API_URL`
+(that backend must then allow the frontend's origin).
 
 No backend handy? A synthetic mock of every endpoint ships with the repo:
 
@@ -44,7 +50,7 @@ committed, so the app never calls Overpass at runtime.
 
 ## Backend contract
 
-All requests go to `VITE_API_URL`. Expected shapes live in `src/api/types.ts`
+All requests go to `VITE_API_URL` if set, otherwise to the same-origin `/api` prefix (proxied by Vite). Expected shapes live in `src/api/types.ts`
 and `src/api/client.ts` normalises small variations (bare arrays vs. wrapped
 objects, alternative field names). Endpoints used:
 

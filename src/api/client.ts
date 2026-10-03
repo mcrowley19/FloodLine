@@ -11,7 +11,12 @@ import type {
   WmsInfo,
 } from './types'
 
-export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:8000'
+/**
+ * Base URL for the backend. Defaults to the same-origin `/api` prefix, which the
+ * Vite dev/preview server proxies to the backend (see vite.config.ts), so no
+ * CORS headers are needed. Set VITE_API_URL to call a backend directly.
+ */
+export const API_URL = ((import.meta.env.VITE_API_URL as string | undefined) || '/api').replace(/\/$/, '')
 
 export class ApiError extends Error {
   status: number
@@ -22,14 +27,15 @@ export class ApiError extends Error {
 }
 
 async function get<T>(path: string, params?: Record<string, string | undefined>): Promise<T> {
-  const url = new URL(API_URL + path)
+  const url = new URL(API_URL + path, window.location.origin)
   if (params) for (const [k, v] of Object.entries(params)) if (v !== undefined) url.searchParams.set(k, v)
   let res: Response
   try {
     res = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
   } catch {
-    throw new ApiError(0, `Cannot reach API at ${API_URL}`)
+    throw new ApiError(0, `Cannot reach API at ${API_URL} — is the backend (or \`pnpm mock\`) running?`)
   }
+  if (res.status === 502 || res.status === 504) throw new ApiError(0, `Backend not reachable behind ${API_URL} (${res.status}) — is it running?`)
   if (!res.ok) throw new ApiError(res.status, `${path} → ${res.status}`)
   return (await res.json()) as T
 }

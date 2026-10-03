@@ -134,7 +134,7 @@ export function useErrorToast(error: unknown, label: string) {
   const pushToast = useStore((s) => s.pushToast)
   useEffect(() => {
     if (!error) return
-    const msg = error instanceof ApiError && error.status === 0 ? `API unreachable · ${label}` : `${label}: ${(error as Error).message ?? 'request failed'}`
+    const msg = error instanceof ApiError && error.status === 0 ? error.message : `${label}: ${(error as Error).message ?? 'request failed'}`
     pushToast('error', msg)
   }, [error, label, pushToast])
 }
