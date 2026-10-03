@@ -39,7 +39,7 @@ IRELAND_BBOX = (-11.0, 51.0, -5.0, 56.0)  # lon_min, lat_min, lon_max, lat_max
 OPW_REF_MIN, OPW_REF_MAX = 1, 41000
 
 LIVE_POLL_S = 15 * 60  # never poll waterlevel.ie faster than this
-ENSEMBLE_REFRESH_S = 3 * 3600
+ENSEMBLE_REFRESH_S = 6 * 3600  # ECMWF ensemble cycles every 6 h; also keeps Open-Meteo usage low
 GFM_REFRESH_S = 30 * 60
 
 USER_AGENT = "Floodline/0.1 (flood lead-time tool for Irish county councils)"

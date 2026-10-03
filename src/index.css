@@ -70,6 +70,10 @@ html, body, #root {
 .maplibregl-ctrl-group button + button { border-top: 1px solid rgba(255,255,255,0.15) !important; }
 .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(1) opacity(0.85); }
 .maplibregl-canvas:focus { outline: none; }
+/* keep zoom buttons clear of the floating navbar on phones */
+@media (max-width: 767px) {
+  .maplibregl-ctrl-top-left { top: 64px; }
+}
 
 /* County labels (HTML markers) */
 .county-label {

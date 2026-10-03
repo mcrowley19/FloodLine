@@ -1,4 +1,7 @@
-import * as turf from '@turf/turf'
+import booleanPointInPolygon from '@turf/boolean-point-in-polygon'
+import pointToLineDistance from '@turf/point-to-line-distance'
+import { polygonToLine } from '@turf/polygon-to-line'
+import { point, polygon } from '@turf/helpers'
 import type { Feature, Polygon, MultiPolygon } from 'geojson'
 import type { FloodFeatureCollection } from '../api/types'
 
@@ -18,19 +21,19 @@ export interface NearestFlood {
  */
 export function nearestFlood(lon: number, lat: number, fc: FloodFeatureCollection | null | undefined): NearestFlood | null {
   if (!fc || !fc.features?.length) return null
-  const pt = turf.point([lon, lat])
+  const pt = point([lon, lat])
   let best: NearestFlood | null = null
   for (const f of fc.features) {
     if (!f.geometry) continue
     const polys: Feature<Polygon>[] =
       f.geometry.type === 'Polygon'
-        ? [turf.polygon(f.geometry.coordinates)]
-        : (f.geometry as MultiPolygon).coordinates.map((c) => turf.polygon(c))
+        ? [polygon(f.geometry.coordinates)]
+        : (f.geometry as MultiPolygon).coordinates.map((c) => polygon(c))
     for (const poly of polys) {
       let d: number
       try {
-        if (turf.booleanPointInPolygon(pt, poly)) d = 0
-        else d = turf.pointToLineDistance(pt, turf.polygonToLine(poly) as Feature<import('geojson').LineString>, { units: 'kilometers' })
+        if (booleanPointInPolygon(pt, poly)) d = 0
+        else d = pointToLineDistance(pt, polygonToLine(poly) as Feature<import('geojson').LineString>, { units: 'kilometers' })
       } catch {
         continue
       }

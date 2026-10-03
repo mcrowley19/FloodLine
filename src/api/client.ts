@@ -14,8 +14,10 @@ import type {
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? 'http://localhost:8000'
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  status: number
+  constructor(status: number, message: string) {
     super(message)
+    this.status = status
   }
 }
 
@@ -93,7 +95,7 @@ function normaliseSatellite(raw: unknown): SatelliteResponse {
     return { status: 'ok', observed_at: str(o.observed_at), features: o as unknown as SatelliteResponse['features'] }
   }
   const fc = (o.features ?? o.geojson ?? o.polygons ?? { type: 'FeatureCollection', features: [] }) as Record<string, unknown>
-  const features = (fc.type === 'FeatureCollection' ? fc : { type: 'FeatureCollection', features: fc }) as SatelliteResponse['features']
+  const features = (fc.type === 'FeatureCollection' ? fc : { type: 'FeatureCollection', features: fc }) as unknown as SatelliteResponse['features']
   // Ensure every feature has a stable id for feature-state driven animation
   features.features = (features.features ?? []).map((f, i) => ({
     ...f,

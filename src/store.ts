@@ -29,6 +29,8 @@ interface State {
   /** mobile bottom sheet expanded */
   sheetOpen: boolean
   toasts: Toast[]
+  /** current map viewport as "minLon,minLat,maxLon,maxLat" (debounced) */
+  viewBbox: string | null
 
   setTab: (tab: Tab) => void
   selectStation: (id: string | null) => void
@@ -40,6 +42,7 @@ interface State {
   setDemoPlaying: (p: boolean) => void
   setDemoLoading: (l: boolean) => void
   setSheetOpen: (o: boolean) => void
+  setViewBbox: (b: string) => void
   pushToast: (kind: Toast['kind'], message: string) => void
   dismissToast: (id: number) => void
 }
@@ -57,6 +60,7 @@ export const useStore = create<State>((set, get) => ({
   demoLoading: false,
   sheetOpen: false,
   toasts: [],
+  viewBbox: null,
 
   setTab: (tab) => set({ tab }),
   selectStation: (id) => set({ selectedStationId: id, sheetOpen: id ? true : get().sheetOpen }),
@@ -76,6 +80,7 @@ export const useStore = create<State>((set, get) => ({
   setDemoPlaying: (demoPlaying) => set({ demoPlaying }),
   setDemoLoading: (demoLoading) => set({ demoLoading }),
   setSheetOpen: (sheetOpen) => set({ sheetOpen }),
+  setViewBbox: (viewBbox) => set({ viewBbox }),
   pushToast: (kind, message) => {
     const id = toastSeq++
     set((s) => ({ toasts: [...s.toasts.filter((t) => t.message !== message), { id, kind, message }] }))

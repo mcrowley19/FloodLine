@@ -11,6 +11,24 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.104.1
         version: 5.104.1(react@18.3.1)
+      '@turf/area':
+        specifier: ^7.4.0
+        version: 7.4.0
+      '@turf/boolean-point-in-polygon':
+        specifier: ^7.4.0
+        version: 7.4.0
+      '@turf/center-of-mass':
+        specifier: ^7.4.0
+        version: 7.4.0
+      '@turf/helpers':
+        specifier: ^7.4.0
+        version: 7.4.0
+      '@turf/point-to-line-distance':
+        specifier: ^7.4.0
+        version: 7.4.0
+      '@turf/polygon-to-line':
+        specifier: ^7.4.0
+        version: 7.4.0
       '@turf/turf':
         specifier: ^7.4.0
         version: 7.4.0

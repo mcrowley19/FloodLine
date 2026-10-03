@@ -17,7 +17,12 @@ import osmtogeojson from 'osmtogeojson'
 import * as turf from '@turf/turf'
 import type { Feature, FeatureCollection, MultiPolygon, Polygon, MultiLineString, LineString } from 'geojson'
 
-const OVERPASS = process.env.OVERPASS_URL ?? 'https://overpass-api.de/api/interpreter'
+const OVERPASS_MIRRORS = [
+  process.env.OVERPASS_URL,
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+].filter((u): u is string => !!u)
 const OUT_DIR = resolve(process.cwd(), 'src/geo')
 
 // OSM relation ids: Republic of Ireland = 62273, Northern Ireland = 156393.
@@ -38,16 +43,27 @@ const RIVER_NAMES = [
 ]
 
 async function overpass(query: string): Promise<unknown> {
-  const started = Date.now()
-  const res = await fetch(OVERPASS, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'floodline-geo/0.1 (scripts/fetch-geo.ts)' },
-    body: 'data=' + encodeURIComponent(query),
-  })
-  if (!res.ok) throw new Error(`Overpass ${res.status}: ${await res.text()}`)
-  const json = await res.json()
-  console.log(`  overpass ok in ${((Date.now() - started) / 1000).toFixed(1)}s`)
-  return json
+  let lastErr: Error | null = null
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const url = OVERPASS_MIRRORS[attempt % OVERPASS_MIRRORS.length]
+    const started = Date.now()
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'floodline-geo/0.1 (scripts/fetch-geo.ts)' },
+        body: 'data=' + encodeURIComponent(query),
+      })
+      if (!res.ok) throw new Error(`Overpass ${res.status} from ${url}: ${(await res.text()).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200)}`)
+      const json = await res.json()
+      console.log(`  overpass ok (${url}) in ${((Date.now() - started) / 1000).toFixed(1)}s`)
+      return json
+    } catch (e) {
+      lastErr = e as Error
+      console.warn(`  attempt ${attempt + 1} failed: ${lastErr.message}`)
+      await new Promise((r) => setTimeout(r, 5_000 * (attempt + 1)))
+    }
+  }
+  throw lastErr
 }
 
 function round(fc: FeatureCollection, places = 4): FeatureCollection {
@@ -99,7 +115,9 @@ async function fetchRivers(): Promise<FeatureCollection<MultiLineString>> {
   const regex = `^(River |An |Abhainn na |Abhainn )?(${alternation})( River)?$`
   const raw = await overpass(`
     [out:json][timeout:300];
-    (area:${ROI_AREA}; area:${NI_AREA};)->.ie;
+    area(${ROI_AREA})->.roi;
+    area(${NI_AREA})->.ni;
+    (.roi; .ni;)->.ie;
     way["waterway"="river"]["name"~"${regex}",i](area.ie);
     out geom;
   `)
@@ -124,7 +142,13 @@ async function fetchRivers(): Promise<FeatureCollection<MultiLineString>> {
 
 async function main() {
   mkdirSync(OUT_DIR, { recursive: true })
+  const only = process.argv.find((a) => a.startsWith('--only='))?.split('=')[1] // counties | rivers
 
+  if (only !== 'rivers') await buildCounties()
+  if (only !== 'counties') await buildRivers()
+}
+
+async function buildCounties() {
   const counties = await fetchCounties()
   const simplifiedCounties = turf.simplify(counties, { tolerance: 0.004, highQuality: false, mutate: true })
 
@@ -143,7 +167,9 @@ async function main() {
   const irelandPath = resolve(OUT_DIR, 'ireland.json')
   writeFileSync(irelandPath, JSON.stringify(irelandOut))
   console.log(`  wrote ${irelandPath} (${kb(irelandPath)})`)
+}
 
+async function buildRivers() {
   const rivers = await fetchRivers()
   const simplifiedRivers = turf.simplify(rivers, { tolerance: 0.0015, highQuality: false, mutate: true })
   const riversPath = resolve(OUT_DIR, 'rivers.json')

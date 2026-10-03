@@ -8,10 +8,17 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "geo:fetch": "tsx scripts/fetch-geo.ts"
+    "geo:fetch": "tsx scripts/fetch-geo.ts",
+    "mock": "node scripts/mock-api.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.1",
+    "@turf/area": "^7.4.0",
+    "@turf/boolean-point-in-polygon": "^7.4.0",
+    "@turf/center-of-mass": "^7.4.0",
+    "@turf/helpers": "^7.4.0",
+    "@turf/point-to-line-distance": "^7.4.0",
+    "@turf/polygon-to-line": "^7.4.0",
     "@turf/turf": "^7.4.0",
     "maplibre-gl": "^6.11.2",
     "react": "^18.3.1",
