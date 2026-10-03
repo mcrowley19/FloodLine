@@ -26,10 +26,12 @@ docs at `/docs`.
 
 ### Environment variables (all optional)
 
+The `floodline` CLI loads them from the repo's `.env`; variables already set in the shell take precedence.
+
 | Variable | Purpose |
 |---|---|
 | `GFM_USER`, `GFM_PASS` | Copernicus Global Flood Monitoring account (free: https://portal.gfm.eodc.eu). Without them `/satellite/latest` returns an empty FeatureCollection with `status: "unavailable"` and the reason. |
-| `CDSE_CLIENT_ID` | Copernicus Data Space Sentinel Hub **configuration (instance) ID** for the WMS. Create a free account at https://dataspace.copernicus.eu, open the Sentinel Hub dashboard (https://shapps.dataspace.copernicus.eu/dashboard) → *Configuration Utility* → *Add new configuration* from the "Simple Sentinel-2 L2A" template (it includes a `TRUE_COLOR` layer), and copy its ID. Without it `/satellite/wms` returns `{available: false}`. Optional: `CDSE_WMS_LAYER` (default `TRUE_COLOR`), `CDSE_MAX_CLOUD` (default 30). |
+| `CDSE_CLIENT_ID` | Copernicus Data Space Sentinel Hub **configuration (instance) ID** for the WMS. Create a free account at https://dataspace.copernicus.eu, open the Sentinel Hub dashboard (https://shapps.dataspace.copernicus.eu/dashboard) → *Configuration Utility* → *Add new configuration* from the "Simple Sentinel-2 L2A" template (it includes a `TRUE_COLOR` layer), and copy its ID. Without it `/satellite/wms` returns `{available: false}` and the Imagery toggle is disabled. Optional: `CDSE_WMS_LAYER` (default `TRUE_COLOR`), `CDSE_MAX_CLOUD` (default 30). |
 | `OPEN_METEO_API_KEY` | Open-Meteo commercial key: uses the `customer-*` endpoints, no client-side throttling, and a finer 0.25° rain grid. |
 | `FLOODLINE_RAIN_GRID` | Rain grid in degrees (default 0.5 on the free tier, 0.25 with a key). |
 | `FLOODLINE_SURFACE_REFRESH_H` | Hours between high-resolution surface-water rain refreshes (default 12; each costs ~2,500 Open-Meteo calls). |
@@ -225,7 +227,7 @@ All JSON / GeoJSON. CORS is open for `localhost` / `127.0.0.1` on any port.
 | `GET /station/{id}` | The above plus `history_72h`, `ensemble_fan` (per 6 h: p10/p50/p90 totals and cumulative), `ensemble` summary, `decision_inputs`, `decision` (L, p*, P(≤L)), `uncertainty_rain_p10_p90` (probabilities re-run with ensemble p10 / p90 rain), `shap_top5_24h` (calibrated log-odds contributions) |
 | `GET /lead-times` | `[{id, name, status, L, pred_cross_utc, fill_deadline_utc, hours_remaining, tasks: [{task, deadline_utc}], supplies: {p_need, horizon_h, full_kit, items: [{key, label, unit, full, get}]}}]`. Tasks: rest centre standby (−24 h), public warning (−18 h), fill sandbags (deadline), clear culvert screens (−8 h), open collection points (−4 h). |
 | `GET /satellite/latest?bbox=minLon,minLat,maxLon,maxLat` | GFM FeatureCollection clipped to bbox; `properties: {observed_at, source, status, reason}` |
-| `GET /satellite/wms` | CDSE WMS config (`url`, `layer`, `max_cloud_cover_param: "MAXCC"`, GetMap params) or `{available: false}` |
+| `GET /satellite/wms` | CDSE WMS config (`url`, `layer`, `max_cloud_cover_param: "MAXCC"`, GetMap `params`, and a MapLibre `tile_url_template` with `{bbox-epsg-3857}`) or `{available: false, reason}` |
 | `GET /data-status` | Station / row counts, last live reading, model metrics, health of OPW, OPW live, Open-Meteo archive / recent / IFS / AIFS, CFRAM, GFM, EMSR860, CDSE WMS |
 | `POST /settings` | Body `{"global": {...}, "stations": {"25017": {...}}}`; persisted to `data/settings.json`, applied immediately |
 | `GET /demo/timeline` | 33 snapshots every 6 h, 2026-01-22T00Z → 2026-01-30T00Z, landfall flagged at 2026-01-27T00Z |

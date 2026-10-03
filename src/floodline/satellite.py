@@ -310,6 +310,7 @@ def wms_config() -> dict:
         "TIME": f"{end - timedelta(days=30)}/{end}",
         "WIDTH": 256,
         "HEIGHT": 256,
+        "SHOWLOGO": "false",  # attribution is in the map footer instead of stamped on every tile
     }
     return {
         "available": True,
